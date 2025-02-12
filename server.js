@@ -22,8 +22,9 @@ app.post("/api/register", async (req, res) => {
 	const { username, password } = req.body;
 
 	try {
+		const hashedPassword = await bcrypt.hash(password, 10);
 		const stmt = db.prepare("INSERT INTO users (username, password) VALUES (?, ?)");
-		stmt.run(username, password);
+		stmt.run(username, hashedPassword);
 		res.json({ success: true });
 	} catch (error) {
 		res.status(400).json({ error: "Username already exists" });
@@ -37,7 +38,7 @@ app.post("/api/login", async (req, res) => {
 	const stmt = db.prepare("SELECT * FROM users WHERE username = ?");
 	const user = stmt.get(username);
 
-	if (user && password === user.password) {
+	if (user && (await bcrypt.compare(password, user.password))) {
 		req.session.userId = user.id;
 		res.json({ success: true });
 	} else {
