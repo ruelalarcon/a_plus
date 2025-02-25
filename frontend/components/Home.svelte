@@ -16,8 +16,8 @@
 </div>
 
 <script>
-	import { Link } from "svelte-routing";
-	import { username, logout } from "../lib/stores.js";
+	import { Link } from 'svelte-routing';
+	import { username, logout } from '../lib/stores.js';
 </script>
 
 <style>

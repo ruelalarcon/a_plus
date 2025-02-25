@@ -8,24 +8,24 @@
 </div>
 
 <script>
-	import { navigate } from "svelte-routing";
+	import { navigate } from 'svelte-routing';
 
 	async function handleSubmit(e) {
 		e.preventDefault();
 		const formData = new FormData(e.target);
-		const response = await fetch("/api/register", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
+		const response = await fetch('/api/register', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
-				username: formData.get("username"),
-				password: formData.get("password"),
+				username: formData.get('username'),
+				password: formData.get('password'),
 			}),
 		});
 
 		if (response.ok) {
-			navigate("/login", { replace: true });
+			navigate('/login', { replace: true });
 		} else {
-			alert("Registration failed");
+			alert('Registration failed');
 		}
 	}
 </script>
