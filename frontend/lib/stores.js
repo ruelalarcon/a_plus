@@ -19,9 +19,9 @@ export async function checkLoginStatus() {
 }
 
 export async function logout() {
-	const response = await fetch("/api/logout", { method: "POST" });
+	const response = await fetch('/api/logout', { method: 'POST' });
 	if (response.ok) {
 		username.set(null);
-		navigate("/", { replace: true });
+		navigate('/', { replace: true });
 	}
 }
