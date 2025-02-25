@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Auth App</title>
+	<script>
+		// This ensures the router works with the server's catch-all route
+		window.process = {
+			env: {
+				NODE_ENV: 'production'
+			}
+		};
+	</script>
+</head>
+
+<body>
+	<div id="app"></div>
+	<script type="module" src="main.js"></script>
+</body>
+
+</html>
