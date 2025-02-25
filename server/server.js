@@ -1,14 +1,21 @@
-require("dotenv").config();
-const express = require("express");
-const session = require("express-session");
-const bcrypt = require("bcrypt");
-const db = require("./db");
+import dotenv from 'dotenv';
+import express from 'express';
+import session from 'express-session';
+import bcrypt from 'bcrypt';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import db from './db.js';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.static("public"));
+app.use(express.static("dist"));
 app.use(
 	session({
 		secret: process.env.SESSION_SECRET,
@@ -61,6 +68,11 @@ app.get("/api/user", (req, res) => {
 	const stmt = db.prepare("SELECT username FROM users WHERE id = ?");
 	const user = stmt.get(req.session.userId);
 	res.json({ username: user.username });
+});
+
+// Update the client-side routing handler to use join
+app.get('*', (req, res) => {
+	res.sendFile(join(__dirname, '../dist/index.html'));
 });
 
 app.listen(port, () => {
