@@ -142,22 +142,30 @@ app.put('/api/calculators/:id', (req, res) => {
 		return res.status(404).json({ error: 'Calculator not found' });
 	}
 
-	const db_transaction = db.transaction((assessments) => {
-		// Delete existing assessments
-		db.prepare('DELETE FROM assessments WHERE calculator_id = ?').run(calculator.id);
+	if (req.body.name !== undefined) {
+		// Update name
+		db.prepare('UPDATE calculators SET name = ? WHERE id = ?')
+			.run(req.body.name, calculator.id);
+	} else if (req.body.assessments) {
+		// Update assessments
+		const db_transaction = db.transaction((assessments) => {
+			// Delete existing assessments
+			db.prepare('DELETE FROM assessments WHERE calculator_id = ?').run(calculator.id);
 
-		// Insert new assessments
-		const insertStmt = db.prepare(`
-			INSERT INTO assessments (calculator_id, name, weight, grade)
-			VALUES (?, ?, ?, ?)
-		`);
+			// Insert new assessments
+			const insertStmt = db.prepare(`
+				INSERT INTO assessments (calculator_id, name, weight, grade)
+				VALUES (?, ?, ?, ?)
+			`);
 
-		for (const assessment of assessments) {
-			insertStmt.run(calculator.id, assessment.name, assessment.weight, assessment.grade);
-		}
-	});
+			for (const assessment of assessments) {
+				insertStmt.run(calculator.id, assessment.name, assessment.weight, assessment.grade);
+			}
+		});
 
-	db_transaction(req.body.assessments);
+		db_transaction(req.body.assessments);
+	}
+
 	res.json({ success: true });
 });
 
