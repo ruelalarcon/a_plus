@@ -4,6 +4,7 @@
             <h1>{calculator.name}</h1>
         </div>
         <div class="header-actions">
+            <button class="publish-btn" on:click={publishTemplate}>Publish Template</button>
             <button class="delete-btn" on:click={deleteCalculator}>Delete Calculator</button>
             <Link to="/">Back to Dashboard</Link>
         </div>
@@ -134,6 +135,45 @@
 
         if (response.ok) {
             navigate('/', { replace: true });
+        }
+    }
+
+    async function publishTemplate() {
+        const name = prompt('Enter a name for your template:', calculator.name);
+        if (!name) return;
+
+        const term = prompt('Enter the term (e.g. Fall, Spring):');
+        if (!term) return;
+
+        const yearStr = prompt('Enter the year:');
+        if (!yearStr) return;
+        const year = parseInt(yearStr);
+        if (isNaN(year)) {
+            alert('Please enter a valid year');
+            return;
+        }
+
+        const institution = prompt('Enter the institution name:');
+        if (!institution) return;
+
+        const templateData = {
+            name,
+            term,
+            year,
+            institution,
+            assessments: assessments.map(({ name, weight }) => ({ name, weight }))
+        };
+
+        const response = await fetch('/api/templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(templateData)
+        });
+
+        if (response.ok) {
+            alert('Template published successfully!');
+        } else {
+            alert('Failed to publish template');
         }
     }
 </script>
