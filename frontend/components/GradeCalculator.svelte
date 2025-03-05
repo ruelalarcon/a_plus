@@ -1,7 +1,12 @@
 <div class="container">
     <div class="header">
-        <h1>{calculator.name}</h1>
-        <Link to="/">Back to Dashboard</Link>
+        <div>
+            <h1>{calculator.name}</h1>
+        </div>
+        <div class="header-actions">
+            <button class="delete-btn" on:click={deleteCalculator}>Delete Calculator</button>
+            <Link to="/">Back to Dashboard</Link>
+        </div>
     </div>
 
     <div class="calculator-content">
@@ -50,7 +55,7 @@
 </div>
 
 <script>
-    import { Link } from 'svelte-routing';
+    import { Link, navigate } from 'svelte-routing';
     import { onMount } from 'svelte';
 
     export let id; // Calculator ID from route params
@@ -117,6 +122,20 @@
             alert('Changes saved successfully!');
         }
     }
+
+    async function deleteCalculator() {
+        if (!confirm('Are you sure you want to delete this calculator? This cannot be undone.')) {
+            return;
+        }
+
+        const response = await fetch(`/api/calculators/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            navigate('/', { replace: true });
+        }
+    }
 </script>
 
 <style>
@@ -159,5 +178,11 @@
 
     input {
         padding: 8px;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
     }
 </style>
