@@ -204,13 +204,19 @@ app.post('/api/templates', (req, res) => {
 	const { name, term, year, institution, assessments } = req.body;
 
 	const db_transaction = db.transaction(() => {
-		// Create template
+		// Create template with initial vote count of 1
 		const templateStmt = db.prepare(`
-			INSERT INTO calculator_templates (user_id, name, term, year, institution)
-			VALUES (?, ?, ?, ?, ?)
+			INSERT INTO calculator_templates (user_id, name, term, year, institution, vote_count)
+			VALUES (?, ?, ?, ?, ?, 1)
 		`);
 		const result = templateStmt.run(req.session.userId, name, term, year, institution);
 		const templateId = result.lastInsertRowid;
+
+		// Add creator's automatic upvote
+		db.prepare(`
+			INSERT INTO template_votes (template_id, user_id, vote)
+			VALUES (?, ?, 1)
+		`).run(templateId, req.session.userId);
 
 		// Add assessments
 		const assessmentStmt = db.prepare(`
@@ -232,6 +238,7 @@ app.post('/api/templates', (req, res) => {
 // Search templates
 app.get('/api/templates/search', (req, res) => {
 	const MAX_LIMIT = 100;
+	const MIN_VOTES = -1;
 	const { query, term, year, institution, page = 1, limit = 20 } = req.query;
 	const safeLimit = Math.min(Number(limit), MAX_LIMIT);
 	const offset = (page - 1) * safeLimit;
@@ -241,15 +248,17 @@ app.get('/api/templates/search', (req, res) => {
 		SELECT COUNT(*) as total
 		FROM calculator_templates t
 		WHERE
-			t.name LIKE ? OR
+			(t.name LIKE ? OR
 			t.term LIKE ? OR
 			t.year = ? OR
-			t.institution LIKE ?
+			t.institution LIKE ?) AND
+			t.vote_count >= ?
 	`).get(
 		`%${query || ''}%`,
 		`%${term || ''}%`,
 		year || 0,
-		`%${institution || ''}%`
+		`%${institution || ''}%`,
+		MIN_VOTES
 	);
 
 	// Then get paginated results
@@ -257,6 +266,7 @@ app.get('/api/templates/search', (req, res) => {
 		SELECT
 			t.*,
 			u.username as creator_name,
+			COALESCE(v.vote, 0) as user_vote,
 			(
 				CASE
 					WHEN t.name LIKE ? THEN 1
@@ -277,15 +287,18 @@ app.get('/api/templates/search', (req, res) => {
 			) as match_score
 		FROM calculator_templates t
 		JOIN users u ON t.user_id = u.id
+		LEFT JOIN template_votes v ON t.id = v.template_id AND v.user_id = ?
 		WHERE
-			t.name LIKE ? OR
+			(t.name LIKE ? OR
 			t.term LIKE ? OR
 			t.year = ? OR
-			t.institution LIKE ?
+			t.institution LIKE ?) AND
+			t.vote_count >= ?
 		ORDER BY match_score DESC,
 			CASE WHEN t.institution LIKE ? THEN 0 ELSE 1 END,
 			CASE WHEN t.name LIKE ? THEN 0 ELSE 1 END,
 			CASE WHEN t.term LIKE ? THEN 0 ELSE 1 END,
+			t.vote_count DESC,
 			t.created_at DESC
 		LIMIT ? OFFSET ?
 	`).all(
@@ -293,10 +306,12 @@ app.get('/api/templates/search', (req, res) => {
 		`%${term || ''}%`,
 		year || 0,
 		`%${institution || ''}%`,
+		req.session.userId || 0,
 		`%${query || ''}%`,
 		`%${term || ''}%`,
 		year || 0,
 		`%${institution || ''}%`,
+		MIN_VOTES,
 		`%${institution || ''}%`,
 		`%${query || ''}%`,
 		`%${term || ''}%`,
@@ -386,6 +401,131 @@ app.post('/api/templates/:id/use', (req, res) => {
 
 	const calculatorId = db_transaction();
 	res.json({ id: calculatorId });
+});
+
+// Vote on a template
+app.post('/api/templates/:id/vote', (req, res) => {
+	if (!req.session.userId) {
+		return res.status(401).json({ error: 'Not logged in' });
+	}
+
+	const { vote } = req.body;
+	if (vote !== 1 && vote !== -1) {
+		return res.status(400).json({ error: 'Invalid vote value' });
+	}
+
+	const template = db.prepare(`
+		SELECT * FROM calculator_templates
+		WHERE id = ?
+	`).get(req.params.id);
+
+	if (!template) {
+		return res.status(404).json({ error: 'Template not found' });
+	}
+
+	// Prevent voting on own templates
+	if (template.user_id === req.session.userId) {
+		return res.status(400).json({ error: 'Cannot vote on your own template' });
+	}
+
+	const db_transaction = db.transaction(() => {
+		// Get existing vote if any
+		const existingVote = db.prepare(`
+			SELECT vote FROM template_votes
+			WHERE template_id = ? AND user_id = ?
+		`).get(template.id, req.session.userId);
+
+		if (existingVote) {
+			// Remove old vote from count
+			db.prepare(`
+				UPDATE calculator_templates
+				SET vote_count = vote_count - ?
+				WHERE id = ?
+			`).run(existingVote.vote, template.id);
+
+			// Update vote
+			db.prepare(`
+				UPDATE template_votes
+				SET vote = ?
+				WHERE template_id = ? AND user_id = ?
+			`).run(vote, template.id, req.session.userId);
+		} else {
+			// Insert new vote
+			db.prepare(`
+				INSERT INTO template_votes (template_id, user_id, vote)
+				VALUES (?, ?, ?)
+			`).run(template.id, req.session.userId, vote);
+		}
+
+		// Update template vote count
+		db.prepare(`
+			UPDATE calculator_templates
+			SET vote_count = vote_count + ?
+			WHERE id = ?
+		`).run(vote, template.id);
+
+		// Get updated vote count
+		return db.prepare(`
+			SELECT vote_count FROM calculator_templates
+			WHERE id = ?
+		`).get(template.id).vote_count;
+	});
+
+	const newVoteCount = db_transaction();
+	res.json({ vote_count: newVoteCount, user_vote: vote });
+});
+
+// Remove vote from template
+app.delete('/api/templates/:id/vote', (req, res) => {
+	if (!req.session.userId) {
+		return res.status(401).json({ error: 'Not logged in' });
+	}
+
+	const template = db.prepare(`
+		SELECT * FROM calculator_templates
+		WHERE id = ?
+	`).get(req.params.id);
+
+	if (!template) {
+		return res.status(404).json({ error: 'Template not found' });
+	}
+
+	// Prevent removing vote from own template (automatic upvote)
+	if (template.user_id === req.session.userId) {
+		return res.status(400).json({ error: 'Cannot remove vote from your own template' });
+	}
+
+	const db_transaction = db.transaction(() => {
+		// Get existing vote
+		const existingVote = db.prepare(`
+			SELECT vote FROM template_votes
+			WHERE template_id = ? AND user_id = ?
+		`).get(template.id, req.session.userId);
+
+		if (existingVote) {
+			// Remove vote from count
+			db.prepare(`
+				UPDATE calculator_templates
+				SET vote_count = vote_count - ?
+				WHERE id = ?
+			`).run(existingVote.vote, template.id);
+
+			// Delete vote record
+			db.prepare(`
+				DELETE FROM template_votes
+				WHERE template_id = ? AND user_id = ?
+			`).run(template.id, req.session.userId);
+		}
+
+		// Get updated vote count
+		return db.prepare(`
+			SELECT vote_count FROM calculator_templates
+			WHERE id = ?
+		`).get(template.id).vote_count;
+	});
+
+	const newVoteCount = db_transaction();
+	res.json({ vote_count: newVoteCount });
 });
 
 // Update the client-side routing handler to use join
