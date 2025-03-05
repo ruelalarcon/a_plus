@@ -7,7 +7,7 @@
 			placeholder="Add a comment..."
 			rows="3"
 		></textarea>
-		<button on:click={addComment}>Post Comment</button>
+		<button on:click={submitComment}>Post Comment</button>
 	</div>
 
 	{#if comments.length > 0}
@@ -61,19 +61,25 @@
 		}
 	}
 
-	async function addComment() {
+	async function submitComment() {
 		if (!newComment.trim()) return;
 
-		const response = await fetch(`/api/templates/${templateId}/comments`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ content: newComment })
-		});
+		try {
+			const response = await fetch(`/api/templates/${templateId}/comments`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ content: newComment })
+			});
 
-		if (response.ok) {
+			if (!response.ok) throw new Error('Failed to submit comment');
+
 			const comment = await response.json();
-			comments = [...comments, comment];
+			comments = [comment, ...comments];
 			newComment = '';
+		} catch (error) {
+			console.error('Error submitting comment:', error);
 		}
 	}
 
