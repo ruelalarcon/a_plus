@@ -5,10 +5,13 @@
 		<input 	type="password" name="password" placeholder="Password" required />
 		<button type="submit">Register</button>
 	</form>
+	<p class="auth-link">
+		Already have an account? <Link to="/login">Log in</Link>
+	</p>
 </div>
 
 <script>
-	import { navigate } from 'svelte-routing';
+	import { navigate, Link } from 'svelte-routing';
 
 	async function handleSubmit(e) {
 		e.preventDefault();
