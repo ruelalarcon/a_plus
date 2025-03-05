@@ -1,49 +1,57 @@
-<div class="comments-section">
-	<h3>Comments</h3>
+<section>
+	<header>
+		<h3>Comments</h3>
+	</header>
 
-	<div class="new-comment">
+	<form>
 		<textarea
 			bind:value={newComment}
 			placeholder="Add a comment..."
 			rows="3"
 		></textarea>
-		<button on:click={submitComment}>Post Comment</button>
-	</div>
+		<footer>
+			<button type="button" on:click={submitComment}>Post Comment</button>
+		</footer>
+	</form>
 
 	{#if comments.length > 0}
-		<div class="comments-list">
+		<ul class="comment-list">
 			{#each comments as comment}
-				<div class="comment">
-					<div class="comment-header">
-						<span class="username">{comment.username}</span>
-						<span class="date">{new Date(comment.created_at).toLocaleDateString()}</span>
-						{#if comment.user_id === $userId}
-							<div class="comment-actions">
-								{#if editingComment?.id === comment.id}
-									<button on:click={() => saveEdit(comment)}>Save</button>
-									<button on:click={cancelEdit}>Cancel</button>
-								{:else}
-									<button on:click={() => startEdit(comment)}>Edit</button>
-									<button on:click={() => deleteComment(comment.id)}>Delete</button>
-								{/if}
-							</div>
+				<li class="comment">
+					<article>
+						<header>
+							<strong>{comment.username}</strong>
+							<time datetime={comment.created_at}>
+								{new Date(comment.created_at).toLocaleDateString()}
+							</time>
+							{#if comment.user_id === $userId}
+								<nav>
+									{#if editingComment?.id === comment.id}
+										<button on:click={() => saveEdit(comment)}>Save</button>
+										<button on:click={cancelEdit}>Cancel</button>
+									{:else}
+										<button on:click={() => startEdit(comment)}>Edit</button>
+										<button on:click={() => deleteComment(comment.id)}>Delete</button>
+									{/if}
+								</nav>
+							{/if}
+						</header>
+						{#if editingComment?.id === comment.id}
+							<textarea
+								bind:value={editingComment.content}
+								rows="3"
+							></textarea>
+						{:else}
+							<p>{comment.content}</p>
 						{/if}
-					</div>
-					{#if editingComment?.id === comment.id}
-						<textarea
-							bind:value={editingComment.content}
-							rows="3"
-						></textarea>
-					{:else}
-						<p class="comment-content">{comment.content}</p>
-					{/if}
-				</div>
+					</article>
+				</li>
 			{/each}
-		</div>
+		</ul>
 	{:else}
-		<p class="no-comments">No comments yet. Be the first to comment!</p>
+		<p>No comments yet. Be the first to comment!</p>
 	{/if}
-</div>
+</section>
 
 <script>
 	import { userId } from '../lib/stores.js';
@@ -129,64 +137,15 @@
 </script>
 
 <style>
-	.comments-section {
-		padding: 20px;
-		background: white;
-		border: 1px solid #ccc;
-		border-radius: 4px;
-	}
-
-	.new-comment {
-		margin: 20px 0;
-	}
-
 	textarea {
-		box-sizing: border-box;
 		width: 100%;
-		padding: 10px;
-		margin-bottom: 10px;
-		border: 1px solid #ccc;
-		resize: vertical;
+		max-width: 100%;
+		box-sizing: border-box;
 	}
 
 	.comment {
-		padding: 15px 0;
-		border-bottom: 1px solid #eee;
-	}
-
-	.comment:last-child {
-		border-bottom: none;
-	}
-
-	.comment-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 10px;
-	}
-
-	.username {
-		font-weight: bold;
-	}
-
-	.date {
-		color: #666;
-		font-size: 0.9em;
-	}
-
-	.comment-actions {
-		display: flex;
-		gap: 10px;
-	}
-
-	.comment-content {
-		margin: 0;
-		white-space: pre-wrap;
-	}
-
-	.no-comments {
-		text-align: center;
-		color: #666;
-		margin: 20px 0;
+		border-bottom: 1px solid black;
+		margin: 10px 0;
+		padding: 10px 0;
 	}
 </style>

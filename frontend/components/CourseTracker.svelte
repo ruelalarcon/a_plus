@@ -1,90 +1,112 @@
-<div class="course-tracker">
-    <h2>Course Tracker</h2>
+<section class="course-tracker">
+    <header>
+        <h2>Course Tracker</h2>
+    </header>
 
-    <div class="add-course">
-        <input
-            type="text"
-            bind:value={newCourseName}
-            placeholder="Enter course name"
-            on:keydown={e => e.key === 'Enter' && addCourse()}
-        />
+    <form class="add-course" onsubmit="return false;">
+        <div class="form-group">
+            <label for="new-course">Course Name</label>
+            <input
+                type="text"
+                id="new-course"
+                bind:value={newCourseName}
+                placeholder="Enter course name"
+                on:keydown={e => e.key === 'Enter' && addCourse()}
+            />
+        </div>
+
         {#if courses.length > 0}
-            <div class="prerequisites-select">
-                <h4>Prerequisites:</h4>
+            <fieldset class="prerequisites-select">
+                <legend>Prerequisites</legend>
                 {#each courses as course}
-                    <label>
+                    <div class="checkbox-group">
                         <input
                             type="checkbox"
+                            id={`prereq-${course.id}`}
                             bind:group={selectedPrereqs}
                             value={course.id}
                         />
-                        {course.name}
-                    </label>
+                        <label for={`prereq-${course.id}`}>{course.name}</label>
+                    </div>
                 {/each}
-            </div>
+            </fieldset>
         {/if}
-        <button on:click={addCourse}>Add Course</button>
-    </div>
+        <button type="button" on:click={addCourse}>
+            Add Course
+        </button>
+    </form>
 
     {#if courses.length > 0}
         <div class="course-list">
             {#each sortedCourses as level}
-                <div class="course-level">
+                <section class="course-level">
                     {#each level as course}
-                        <div class="course-item" class:completed={course.completed}>
+                        <article class="course-item" class:completed={course.completed}>
                             {#if editingCourse?.id === course.id}
-                                <div class="edit-course">
-                                    <input
-                                        type="text"
-                                        bind:value={editingCourse.name}
-                                        placeholder="Course name"
-                                    />
-                                    <div class="prerequisites-select">
-                                        <h4>Prerequisites:</h4>
+                                <form class="edit-course">
+                                    <div class="form-group">
+                                        <label for={`edit-course-${course.id}`}>Course Name</label>
+                                        <input
+                                            type="text"
+                                            id={`edit-course-${course.id}`}
+                                            bind:value={editingCourse.name}
+                                            placeholder="Course name"
+                                        />
+                                    </div>
+                                    <fieldset class="prerequisites-select">
+                                        <legend>Prerequisites</legend>
                                         {#each courses.filter(c => c.id !== course.id) as prereq}
-                                            <label>
+                                            <div class="checkbox-group">
                                                 <input
                                                     type="checkbox"
+                                                    id={`edit-prereq-${course.id}-${prereq.id}`}
                                                     bind:group={editingPrereqs}
                                                     value={prereq.id}
                                                 />
-                                                {prereq.name}
-                                            </label>
+                                                <label for={`edit-prereq-${course.id}-${prereq.id}`}>
+                                                    {prereq.name}
+                                                </label>
+                                            </div>
                                         {/each}
-                                    </div>
-                                    <div class="edit-actions">
-                                        <button on:click={() => saveEdit(course)}>Save</button>
-                                        <button on:click={cancelEdit}>Cancel</button>
-                                    </div>
-                                </div>
+                                    </fieldset>
+                                    <nav class="edit-actions">
+                                        <button type="button" on:click={() => saveEdit(course)}>Save</button>
+                                        <button type="button" on:click={cancelEdit}>Cancel</button>
+                                    </nav>
+                                </form>
                             {:else}
                                 <div class="course-content">
-                                    <input
-                                        type="checkbox"
-                                        checked={course.completed}
-                                        on:change={() => toggleComplete(course)}
-                                    />
-                                    <span class="course-name">{course.name}</span>
+                                    <div class="course-header">
+                                        <input
+                                            type="checkbox"
+                                            id={`complete-${course.id}`}
+                                            checked={course.completed}
+                                            on:change={() => toggleComplete(course)}
+                                        />
+                                        <label for={`complete-${course.id}`} class="course-name">
+                                            {course.name}
+                                        </label>
+                                    </div>
                                     {#if course.prerequisites.length > 0}
                                         <div class="prerequisites">
                                             Prerequisites: {course.prerequisites.map(p => p.name).join(', ')}
                                         </div>
                                     {/if}
-                                    <div class="course-actions">
+                                    <nav class="course-actions">
                                         <button on:click={() => startEdit(course)}>Edit</button>
                                         <button on:click={() => deleteCourse(course)}>Delete</button>
-                                    </div>
+                                    </nav>
                                 </div>
                             {/if}
-                        </div>
+                        </article>
                     {/each}
-                </div>
+                </section>
             {/each}
         </div>
     {:else}
         <p>No courses added yet.</p>
     {/if}
-</div>
+</section>
 
 <script>
     import { onMount } from 'svelte';
@@ -197,15 +219,19 @@
     }
 
     // Compute course levels based on prerequisites
+    // This creates a directed acyclic graph (DAG) of courses
+    // where each level contains courses that depend on previous levels
     $: sortedCourses = (() => {
         const levels = [];
         const visited = new Set();
         const courseMap = new Map(courses.map(c => [c.id, c]));
 
+        // Recursive function to determine course level based on prerequisites
         function getLevel(course) {
             if (visited.has(course.id)) return;
             visited.add(course.id);
 
+            // Find the maximum level of all prerequisites
             let maxPrereqLevel = -1;
             for (const prereq of course.prerequisites) {
                 if (!visited.has(prereq.id)) {
@@ -217,6 +243,7 @@
                 maxPrereqLevel = Math.max(maxPrereqLevel, prereqLevel);
             }
 
+            // Place course in next level after its highest prerequisite
             const courseLevel = maxPrereqLevel + 1;
             if (!levels[courseLevel]) {
                 levels[courseLevel] = [];
@@ -224,6 +251,7 @@
             levels[courseLevel].push(course);
         }
 
+        // Process all courses to build the level structure
         for (const course of courses) {
             if (!visited.has(course.id)) {
                 getLevel(course);
@@ -261,12 +289,9 @@
     }
 
     .course-item {
-        padding: 15px;
         border: 1px solid #ccc;
-    }
-
-    .course-item.completed {
-        background: #e8f5e9;
+        border-radius: 4px;
+        padding: 10px;
     }
 
     .course-content {
@@ -280,8 +305,7 @@
     }
 
     .prerequisites {
-        font-size: 0.9em;
-        color: #666;
+        margin: 5px 0;
     }
 
     .course-actions {
@@ -301,13 +325,36 @@
         justify-content: flex-end;
     }
 
-    input[type="text"] {
-        padding: 8px;
-        width: 100%;
-        box-sizing: border-box;
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 5px 0;
     }
 
-    button {
-        padding: 5px 10px;
+    .prerequisites-select {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+    }
+
+    .prerequisites-select legend {
+        padding: 0 5px;
+    }
+
+    .form-group {
+        margin: 10px 0;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .course-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
 </style>

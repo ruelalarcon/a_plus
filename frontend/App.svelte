@@ -4,32 +4,39 @@
 	import { onMount } from 'svelte';
 
 	// Import custom utilities
-	import { checkLoginStatus, userId, username } from './lib/stores.js';
+	import { checkLoginStatus, userId } from './lib/stores.js';
 
-	// Import custom components
-	import Login from './components/Login.svelte';
-	import Register from './components/Register.svelte';
-	import Home from './components/Home.svelte';
-	import Dashboard from './components/Dashboard.svelte';
-	import GradeCalculator from './components/GradeCalculator.svelte';
-	import Search from './components/Search.svelte';
+	// Import routes
+	import Login from './routes/Login.svelte';
+	import Register from './routes/Register.svelte';
+	import Index from './routes/Index.svelte';
+	import Dashboard from './routes/Dashboard.svelte';
+	import GradeCalculator from './routes/GradeCalculator.svelte';
+	import Search from './routes/Search.svelte';
+	import TemplatePreview from './routes/TemplatePreview.svelte';
 
 	let isLoading = true;
 
+	// Check login status when app mounts and set loading state
 	onMount(async () => {
-		await checkLoginStatus(); // Sets the userId and username
+		await checkLoginStatus();
 		isLoading = false;
 	});
 
-	// Disallow authenticated users from accessing login/register
+	// Authentication redirect logic
+	// Redirects unauthenticated users to login/register pages based on current path
 	$: if (!isLoading && !$userId) {
 		const path = window.location.pathname;
-		if (path !== '/' && path !== '/login' && path !== '/register') {
+		// Special case: Redirect template preview to register to capture potential new users
+		if (path.startsWith('/template/')) {
+			localStorage.setItem('redirectAfterAuth', path);
+			navigate('/register', { replace: true });
+		} else if (path !== '/' && path !== '/login' && path !== '/register') {
 			navigate('/login', { replace: true });
 		}
 	}
 
-	// Disallow unauthenticated users from accessing other pages
+	// Prevent authenticated users from accessing auth pages
 	$: if (!isLoading && $userId) {
 		const path = window.location.pathname;
 		if (path === '/login' || path === '/register') {
@@ -45,7 +52,7 @@
 				{#if $userId}
 					<Dashboard />
 				{:else}
-					<Home />
+					<Index />
 				{/if}
 			</Route>
 			<Route path="/login">
@@ -64,6 +71,21 @@
 					<Search />
 				{/if}
 			</Route>
+			<Route path="/template/:id" let:params>
+				<TemplatePreview id={params.id} />
+			</Route>
 		{/if}
 	</main>
 </Router>
+
+<style>
+	:global(body) {
+		margin: 0;
+		padding: 0;
+	}
+
+	main {
+		min-height: 100vh;
+		background: #f5f5f5;
+	}
+</style>
