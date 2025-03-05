@@ -36,6 +36,53 @@
 			</Link>
 		</div>
 	</div>
+
+	<div class="published-templates">
+		<h2>My Published Templates</h2>
+		{#if templates.length > 0}
+			<div class="template-grid">
+				{#each templates as template}
+					<div class="template-card">
+						<h3>{template.name}</h3>
+						<div class="template-details">
+							<p>{template.institution} - {template.term} {template.year}</p>
+							<p>Created by {template.creator_name}</p>
+							<div class="template-actions">
+								<div class="vote-buttons">
+									<button
+										class="vote-btn"
+										class:active={template.user_vote === 1}
+										disabled={true}
+									>▲</button>
+									<span class="vote-count">{template.vote_count}</span>
+									<button
+										class="vote-btn"
+										class:active={template.user_vote === -1}
+										disabled={true}
+									>▼</button>
+								</div>
+								<div class="action-buttons">
+									<button on:click={() => toggleComments(template.id)}>
+										{activeComments === template.id ? 'Hide Comments' : 'Show Comments'}
+									</button>
+									<button on:click={() => deleteTemplate(template.id, template.name)}>
+										Delete
+									</button>
+								</div>
+							</div>
+						</div>
+						{#if activeComments === template.id}
+							<div class="comments-container">
+								<Comments templateId={template.id} />
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{:else}
+			<p>No published templates yet.</p>
+		{/if}
+	</div>
 </div>
 
 <script>
@@ -43,17 +90,30 @@
 	import { username, logout } from '../lib/stores.js';
 	import { onMount } from 'svelte';
 	import { navigate } from 'svelte-routing';
+	import Comments from './Comments.svelte';
 
 	let calculators = [];
+	let templates = [];
+	let activeComments = null;
 
 	onMount(async () => {
-		await loadCalculators();
+		await Promise.all([
+			loadCalculators(),
+			loadTemplates()
+		]);
 	});
 
 	async function loadCalculators() {
 		const response = await fetch('/api/calculators');
 		if (response.ok) {
 			calculators = await response.json();
+		}
+	}
+
+	async function loadTemplates() {
+		const response = await fetch('/api/user/templates');
+		if (response.ok) {
+			templates = await response.json();
 		}
 	}
 
@@ -84,6 +144,20 @@
 
 		if (response.ok) {
 			calculators = calculators.filter(calc => calc.id !== id);
+		}
+	}
+
+	async function deleteTemplate(id, name) {
+		if (!confirm(`Are you sure you want to delete "${name}"? The template will be hidden from search but existing copies will remain.`)) {
+			return;
+		}
+
+		const response = await fetch(`/api/templates/${id}`, {
+			method: 'DELETE'
+		});
+
+		if (response.ok) {
+			templates = templates.filter(t => t.id !== id);
 		}
 	}
 
@@ -133,6 +207,10 @@
 
 		return (weightedSum / totalWeight).toFixed(2);
 	}
+
+	function toggleComments(templateId) {
+		activeComments = activeComments === templateId ? null : templateId;
+	}
 </script>
 
 <style>
@@ -181,5 +259,71 @@
 		display: flex;
 		gap: 15px;
 		margin-top: 20px;
+	}
+
+	.published-templates {
+		margin-top: 40px;
+	}
+
+	.template-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		gap: 20px;
+		margin-bottom: 20px;
+	}
+
+	.template-card {
+		padding: 20px;
+		border: 1px solid #ccc;
+	}
+
+	.template-card h3 {
+		margin: 0 0 10px 0;
+	}
+
+	.template-details {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.template-actions {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-top: 10px;
+	}
+
+	.vote-buttons {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+	}
+
+	.vote-btn {
+		padding: 0 5px;
+		font-size: 1.2em;
+		line-height: 1;
+		opacity: 0.6;
+	}
+
+	.vote-btn.active {
+		opacity: 1;
+	}
+
+	.vote-count {
+		font-weight: bold;
+		min-width: 2em;
+		text-align: center;
+	}
+
+	.action-buttons {
+		display: flex;
+		gap: 10px;
+	}
+
+	.comments-container {
+		margin-top: 20px;
+		border-top: 1px solid #eee;
 	}
 </style>
