@@ -76,4 +76,17 @@ db.exec(`
 	)
 `);
 
+db.exec(`
+	CREATE TABLE IF NOT EXISTS template_comments (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		template_id INTEGER NOT NULL,
+		user_id INTEGER NOT NULL,
+		content TEXT NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (template_id) REFERENCES calculator_templates (id),
+		FOREIGN KEY (user_id) REFERENCES users (id)
+	)
+`);
+
 export default db;
