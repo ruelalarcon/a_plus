@@ -104,16 +104,16 @@ app.post('/api/calculators', (req, res) => {
 	res.json({ id: result.lastInsertRowid, name: req.body.name });
 });
 
-// Get specific calculator with assessments
+// Get calculator
 app.get('/api/calculators/:id', (req, res) => {
-	if (!req.session.userId) {
-		return res.status(401).json({ error: 'Not logged in' });
-	}
-
 	const calculator = db.prepare(`
-		SELECT * FROM calculators
-		WHERE id = ? AND user_id = ?
-	`).get(req.params.id, req.session.userId);
+		SELECT c.*, t.id as template_id, t.name as template_name,
+			   COALESCE(v.vote, 0) as user_vote, t.vote_count
+		FROM calculators c
+		LEFT JOIN calculator_templates t ON c.template_id = t.id
+		LEFT JOIN template_votes v ON t.id = v.template_id AND v.user_id = ?
+		WHERE c.id = ? AND c.user_id = ?
+	`).get(req.session.userId || 0, req.params.id, req.session.userId);
 
 	if (!calculator) {
 		return res.status(404).json({ error: 'Calculator not found' });
@@ -122,7 +122,7 @@ app.get('/api/calculators/:id', (req, res) => {
 	const assessments = db.prepare(`
 		SELECT * FROM assessments
 		WHERE calculator_id = ?
-	`).all(req.params.id);
+	`).all(calculator.id);
 
 	res.json({ calculator, assessments });
 });
@@ -373,12 +373,12 @@ app.post('/api/templates/:id/use', (req, res) => {
 	}
 
 	const db_transaction = db.transaction(() => {
-		// Create new calculator
+		// Create new calculator with template reference
 		const calcStmt = db.prepare(`
-			INSERT INTO calculators (user_id, name)
-			VALUES (?, ?)
+			INSERT INTO calculators (user_id, name, template_id)
+			VALUES (?, ?, ?)
 		`);
-		const result = calcStmt.run(req.session.userId, template.name);
+		const result = calcStmt.run(req.session.userId, template.name, template.id);
 		const calculatorId = result.lastInsertRowid;
 
 		// Copy template assessments
