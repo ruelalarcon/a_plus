@@ -40,4 +40,27 @@ db.exec(`
 	)
 `);
 
+db.exec(`
+	CREATE TABLE IF NOT EXISTS calculator_templates (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		name TEXT NOT NULL,
+		term TEXT NOT NULL,
+		year INTEGER NOT NULL,
+		institution TEXT NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (user_id) REFERENCES users (id)
+	)
+`);
+
+db.exec(`
+	CREATE TABLE IF NOT EXISTS template_assessments (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		template_id INTEGER NOT NULL,
+		name TEXT NOT NULL,
+		weight DECIMAL(5,2) NOT NULL,
+		FOREIGN KEY (template_id) REFERENCES calculator_templates (id)
+	)
+`);
+
 export default db;
