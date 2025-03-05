@@ -236,7 +236,7 @@ app.post('/api/templates', (req, res) => {
 	res.json({ id: templateId });
 });
 
-// Search templates
+// Search templates with complex ranking algorithm
 app.get('/api/templates/search', (req, res) => {
 	const MAX_LIMIT = 100;
 	const MIN_VOTES = -1;
@@ -244,17 +244,17 @@ app.get('/api/templates/search', (req, res) => {
 	const safeLimit = Math.min(Number(limit), MAX_LIMIT);
 	const offset = (page - 1) * safeLimit;
 
-	// First get total count
+	// Query to get total count of matching templates
 	const countQuery = db.prepare(`
 		SELECT COUNT(*) as total
 		FROM calculator_templates t
 		WHERE
-			(t.name LIKE ? OR
-			t.term LIKE ? OR
-			t.year = ? OR
-			t.institution LIKE ?) AND
-			t.vote_count >= ? AND
-			t.deleted = 0
+			(t.name LIKE ? OR            -- Match on name
+			t.term LIKE ? OR             -- Match on term
+			t.year = ? OR                -- Exact year match
+			t.institution LIKE ?) AND     -- Match on institution
+			t.vote_count >= ? AND        -- Minimum vote threshold
+			t.deleted = 0                -- Exclude deleted templates
 	`).get(
 		`%${query || ''}%`,
 		`%${term || ''}%`,
@@ -263,13 +263,14 @@ app.get('/api/templates/search', (req, res) => {
 		MIN_VOTES
 	);
 
-	// Then get paginated results
+	// Complex search query with ranking
 	let templates = db.prepare(`
 		SELECT
 			t.*,
 			u.username as creator_name,
 			COALESCE(v.vote, 0) as user_vote,
 			(
+				-- Calculate match score based on which fields match
 				CASE
 					WHEN t.name LIKE ? THEN 1
 					ELSE 0
@@ -291,12 +292,20 @@ app.get('/api/templates/search', (req, res) => {
 		JOIN users u ON t.user_id = u.id
 		LEFT JOIN template_votes v ON t.id = v.template_id AND v.user_id = ?
 		WHERE
+			-- Match any field
 			(t.name LIKE ? OR
 			t.term LIKE ? OR
 			t.year = ? OR
 			t.institution LIKE ?) AND
 			t.vote_count >= ? AND
 			t.deleted = 0
+		-- Order by:
+		-- 1. Number of matching fields
+		-- 2. Institution match priority
+		-- 3. Name match priority
+		-- 4. Term match priority
+		-- 5. Vote count
+		-- 6. Most recent
 		ORDER BY match_score DESC,
 			CASE WHEN t.institution LIKE ? THEN 0 ELSE 1 END,
 			CASE WHEN t.name LIKE ? THEN 0 ELSE 1 END,
@@ -406,7 +415,7 @@ app.post('/api/templates/:id/use', (req, res) => {
 	res.json({ id: calculatorId });
 });
 
-// Vote on a template
+// Vote on template with transaction to maintain consistency
 app.post('/api/templates/:id/vote', (req, res) => {
 	if (!req.session.userId) {
 		return res.status(401).json({ error: 'Not logged in' });
@@ -439,14 +448,14 @@ app.post('/api/templates/:id/vote', (req, res) => {
 		`).get(template.id, req.session.userId);
 
 		if (existingVote) {
-			// Remove old vote from count
+			// Remove old vote from count first
 			db.prepare(`
 				UPDATE calculator_templates
 				SET vote_count = vote_count - ?
 				WHERE id = ?
 			`).run(existingVote.vote, template.id);
 
-			// Update vote
+			// Update to new vote
 			db.prepare(`
 				UPDATE template_votes
 				SET vote = ?
@@ -467,7 +476,7 @@ app.post('/api/templates/:id/vote', (req, res) => {
 			WHERE id = ?
 		`).run(vote, template.id);
 
-		// Get updated vote count
+		// Get new vote count
 		return db.prepare(`
 			SELECT vote_count FROM calculator_templates
 			WHERE id = ?
