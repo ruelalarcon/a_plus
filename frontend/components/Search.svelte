@@ -39,7 +39,22 @@
 						<div class="template-details">
 							<p>{template.institution} - {template.term} {template.year}</p>
 							<p>Created by {template.creator_name}</p>
-							<button on:click={() => useTemplate(template.id)}>Use Template</button>
+							<div class="template-actions">
+								<div class="vote-buttons">
+									<button
+										class="vote-btn"
+										class:active={template.user_vote === 1}
+										on:click={() => handleVote(template, 1)}
+									>▲</button>
+									<span class="vote-count">{template.vote_count}</span>
+									<button
+										class="vote-btn"
+										class:active={template.user_vote === -1}
+										on:click={() => handleVote(template, -1)}
+									>▼</button>
+								</div>
+								<button on:click={() => useTemplate(template.id)}>Use Template</button>
+							</div>
 						</div>
 					</div>
 				{/each}
@@ -71,7 +86,7 @@
 	let currentPage = 1;
 	let totalPages = 1;
 	let totalResults = 0;
-	const ITEMS_PER_PAGE = 20;
+	const ITEMS_PER_PAGE = 2;
 
 	const debouncedSearch = debounce(async () => {
 		const params = new URLSearchParams({
@@ -100,6 +115,40 @@
 	function changePage(newPage) {
 		currentPage = newPage;
 		debouncedSearch();
+	}
+
+	async function handleVote(template, vote) {
+		// If clicking the same vote button again, remove the vote
+		if (template.user_vote === vote) {
+			const response = await fetch(`/api/templates/${template.id}/vote`, {
+				method: 'DELETE'
+			});
+
+			if (response.ok) {
+				const { vote_count } = await response.json();
+				templates = templates.map(t =>
+					t.id === template.id
+						? { ...t, vote_count, user_vote: 0 }
+						: t
+				);
+			}
+		} else {
+			// Add or change vote
+			const response = await fetch(`/api/templates/${template.id}/vote`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ vote })
+			});
+
+			if (response.ok) {
+				const { vote_count, user_vote } = await response.json();
+				templates = templates.map(t =>
+					t.id === template.id
+						? { ...t, vote_count, user_vote }
+						: t
+				);
+			}
+		}
 	}
 
 	async function useTemplate(templateId) {
@@ -155,6 +204,36 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
+	}
+
+	.template-actions {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-top: 10px;
+	}
+
+	.vote-buttons {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+	}
+
+	.vote-btn {
+		padding: 0 5px;
+		font-size: 1.2em;
+		line-height: 1;
+		opacity: 0.6;
+	}
+
+	.vote-btn.active {
+		opacity: 1;
+	}
+
+	.vote-count {
+		font-weight: bold;
+		min-width: 2em;
+		text-align: center;
 	}
 
 	.pagination {
