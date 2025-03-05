@@ -83,6 +83,8 @@
 			<p>No published templates yet.</p>
 		{/if}
 	</div>
+
+	<CourseTracker />
 </div>
 
 <script>
@@ -91,6 +93,7 @@
 	import { onMount } from 'svelte';
 	import { navigate } from 'svelte-routing';
 	import Comments from './Comments.svelte';
+	import CourseTracker from './CourseTracker.svelte';
 
 	let calculators = [];
 	let templates = [];
