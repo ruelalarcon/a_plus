@@ -77,14 +77,14 @@ app.get('/api/calculators', (req, res) => {
 	}
 
 	const calculators = db.prepare(`
-		SELECT * FROM calculators 
+		SELECT * FROM calculators
 		WHERE user_id = ?
 	`).all(req.session.userId);
 
 	// Get assessments for each calculator
 	const calculatorsWithAssessments = calculators.map(calc => {
 		const assessments = db.prepare(`
-			SELECT * FROM assessments 
+			SELECT * FROM assessments
 			WHERE calculator_id = ?
 		`).all(calc.id);
 		return { ...calc, assessments };
@@ -111,7 +111,7 @@ app.get('/api/calculators/:id', (req, res) => {
 	}
 
 	const calculator = db.prepare(`
-		SELECT * FROM calculators 
+		SELECT * FROM calculators
 		WHERE id = ? AND user_id = ?
 	`).get(req.params.id, req.session.userId);
 
@@ -120,7 +120,7 @@ app.get('/api/calculators/:id', (req, res) => {
 	}
 
 	const assessments = db.prepare(`
-		SELECT * FROM assessments 
+		SELECT * FROM assessments
 		WHERE calculator_id = ?
 	`).all(req.params.id);
 
@@ -134,7 +134,7 @@ app.put('/api/calculators/:id', (req, res) => {
 	}
 
 	const calculator = db.prepare(`
-		SELECT * FROM calculators 
+		SELECT * FROM calculators
 		WHERE id = ? AND user_id = ?
 	`).get(req.params.id, req.session.userId);
 
@@ -145,19 +145,45 @@ app.put('/api/calculators/:id', (req, res) => {
 	const db_transaction = db.transaction((assessments) => {
 		// Delete existing assessments
 		db.prepare('DELETE FROM assessments WHERE calculator_id = ?').run(calculator.id);
-		
+
 		// Insert new assessments
 		const insertStmt = db.prepare(`
-			INSERT INTO assessments (calculator_id, name, weight, grade) 
+			INSERT INTO assessments (calculator_id, name, weight, grade)
 			VALUES (?, ?, ?, ?)
 		`);
-		
+
 		for (const assessment of assessments) {
 			insertStmt.run(calculator.id, assessment.name, assessment.weight, assessment.grade);
 		}
 	});
 
 	db_transaction(req.body.assessments);
+	res.json({ success: true });
+});
+
+// Delete calculator
+app.delete('/api/calculators/:id', async (req, res) => {
+	if (!req.session.userId) {
+		return res.status(401).json({ error: 'Not logged in' });
+	}
+
+	const calculator = db.prepare(`
+		SELECT * FROM calculators
+		WHERE id = ? AND user_id = ?
+	`).get(req.params.id, req.session.userId);
+
+	if (!calculator) {
+		return res.status(404).json({ error: 'Calculator not found' });
+	}
+
+	const db_transaction = db.transaction(() => {
+		// Delete assessments first due to foreign key constraint
+		db.prepare('DELETE FROM assessments WHERE calculator_id = ?').run(calculator.id);
+		// Then delete the calculator
+		db.prepare('DELETE FROM calculators WHERE id = ?').run(calculator.id);
+	});
+
+	db_transaction();
 	res.json({ success: true });
 });
 
