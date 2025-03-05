@@ -59,15 +59,17 @@
 				<p>Based on template: {calculator.template_name}</p>
 				<div class="template-actions">
 					<button
-						class="vote-btn {calculator.user_vote === 1 ? 'active' : ''}"
+						class="vote-btn"
+						class:active={calculator.user_vote === 1 && calculator.template_user_id !== $userId}
 						on:click={() => handleVote(1)}
-						disabled={loading}
+						disabled={loading || calculator.template_user_id === $userId}
 					>▲</button>
 					<span>{calculator.vote_count}</span>
 					<button
-						class="vote-btn {calculator.user_vote === -1 ? 'active' : ''}"
+						class="vote-btn"
+						class:active={calculator.user_vote === -1 && calculator.template_user_id !== $userId}
 						on:click={() => handleVote(-1)}
-						disabled={loading}
+						disabled={loading || calculator.template_user_id === $userId}
 					>▼</button>
 					<button on:click={() => showComments = !showComments}>
 						{showComments ? 'Hide' : 'Show'} Comments
@@ -86,6 +88,7 @@
 	import { Link, navigate } from 'svelte-routing';
 	import { onMount } from 'svelte';
 	import Comments from './Comments.svelte';
+	import { userId } from '../lib/stores.js';
 
 	export let id; // Calculator ID from route params
 
