@@ -43,14 +43,16 @@
 								<div class="vote-buttons">
 									<button
 										class="vote-btn"
-										class:active={template.user_vote === 1}
+										class:active={template.user_vote === 1 && template.user_id !== $userId}
 										on:click={() => handleVote(template, 1)}
+										disabled={template.user_id === $userId}
 									>▲</button>
 									<span class="vote-count">{template.vote_count}</span>
 									<button
 										class="vote-btn"
-										class:active={template.user_vote === -1}
+										class:active={template.user_vote === -1 && template.user_id !== $userId}
 										on:click={() => handleVote(template, -1)}
+										disabled={template.user_id === $userId}
 									>▼</button>
 								</div>
 								<div class="action-buttons">
@@ -88,6 +90,7 @@
 	import { navigate } from 'svelte-routing';
 	import debounce from 'lodash/debounce';
 	import Comments from './Comments.svelte';
+	import { userId } from '../lib/stores.js';
 
 	let searchQuery = '';
 	let term = '';
