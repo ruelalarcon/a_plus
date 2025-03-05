@@ -48,7 +48,20 @@ db.exec(`
 		term TEXT NOT NULL,
 		year INTEGER NOT NULL,
 		institution TEXT NOT NULL,
+		vote_count INTEGER DEFAULT 1,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (user_id) REFERENCES users (id)
+	)
+`);
+
+db.exec(`
+	CREATE TABLE IF NOT EXISTS template_votes (
+		template_id INTEGER NOT NULL,
+		user_id INTEGER NOT NULL,
+		vote INTEGER NOT NULL CHECK (vote IN (-1, 1)),
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (template_id, user_id),
+		FOREIGN KEY (template_id) REFERENCES calculator_templates (id),
 		FOREIGN KEY (user_id) REFERENCES users (id)
 	)
 `);
