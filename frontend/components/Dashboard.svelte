@@ -98,8 +98,8 @@
 		});
 
 		if (response.ok) {
-			calculators = calculators.map(calc => 
-				calc.id === calculator.id 
+			calculators = calculators.map(calc =>
+				calc.id === calculator.id
 					? { ...calc, name: newName }
 					: calc
 			);

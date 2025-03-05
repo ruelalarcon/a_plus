@@ -104,16 +104,16 @@ app.post('/api/calculators', (req, res) => {
 	res.json({ id: result.lastInsertRowid, name: req.body.name });
 });
 
-// Get specific calculator with assessments
+// Get calculator
 app.get('/api/calculators/:id', (req, res) => {
-	if (!req.session.userId) {
-		return res.status(401).json({ error: 'Not logged in' });
-	}
-
 	const calculator = db.prepare(`
-		SELECT * FROM calculators
-		WHERE id = ? AND user_id = ?
-	`).get(req.params.id, req.session.userId);
+		SELECT c.*, t.id as template_id, t.name as template_name,
+			   COALESCE(v.vote, 0) as user_vote, t.vote_count
+		FROM calculators c
+		LEFT JOIN calculator_templates t ON c.template_id = t.id
+		LEFT JOIN template_votes v ON t.id = v.template_id AND v.user_id = ?
+		WHERE c.id = ? AND c.user_id = ?
+	`).get(req.session.userId || 0, req.params.id, req.session.userId);
 
 	if (!calculator) {
 		return res.status(404).json({ error: 'Calculator not found' });
@@ -122,7 +122,7 @@ app.get('/api/calculators/:id', (req, res) => {
 	const assessments = db.prepare(`
 		SELECT * FROM assessments
 		WHERE calculator_id = ?
-	`).all(req.params.id);
+	`).all(calculator.id);
 
 	res.json({ calculator, assessments });
 });
@@ -373,12 +373,12 @@ app.post('/api/templates/:id/use', (req, res) => {
 	}
 
 	const db_transaction = db.transaction(() => {
-		// Create new calculator
+		// Create new calculator with template reference
 		const calcStmt = db.prepare(`
-			INSERT INTO calculators (user_id, name)
-			VALUES (?, ?)
+			INSERT INTO calculators (user_id, name, template_id)
+			VALUES (?, ?, ?)
 		`);
-		const result = calcStmt.run(req.session.userId, template.name);
+		const result = calcStmt.run(req.session.userId, template.name, template.id);
 		const calculatorId = result.lastInsertRowid;
 
 		// Copy template assessments
@@ -526,6 +526,116 @@ app.delete('/api/templates/:id/vote', (req, res) => {
 
 	const newVoteCount = db_transaction();
 	res.json({ vote_count: newVoteCount });
+});
+
+// Get template comments
+app.get('/api/templates/:id/comments', (req, res) => {
+	const comments = db.prepare(`
+		SELECT c.*, u.username
+		FROM template_comments c
+		JOIN users u ON c.user_id = u.id
+		WHERE c.template_id = ?
+		ORDER BY c.created_at DESC
+	`).all(req.params.id);
+
+	res.json(comments);
+});
+
+// Add comment to template
+app.post('/api/templates/:id/comments', (req, res) => {
+	if (!req.session.userId) {
+		return res.status(401).json({ error: 'Not logged in' });
+	}
+
+	const template = db.prepare(`
+		SELECT * FROM calculator_templates WHERE id = ?
+	`).get(req.params.id);
+
+	if (!template) {
+		return res.status(404).json({ error: 'Template not found' });
+	}
+
+	const { content } = req.body;
+	if (!content || !content.trim()) {
+		return res.status(400).json({ error: 'Comment cannot be empty' });
+	}
+
+	const result = db.prepare(`
+		INSERT INTO template_comments (template_id, user_id, content)
+		VALUES (?, ?, ?)
+	`).run(template.id, req.session.userId, content.trim());
+
+	const comment = db.prepare(`
+		SELECT c.*, u.username
+		FROM template_comments c
+		JOIN users u ON c.user_id = u.id
+		WHERE c.id = ?
+	`).get(result.lastInsertRowid);
+
+	res.json(comment);
+});
+
+// Update comment
+app.put('/api/templates/:templateId/comments/:commentId', (req, res) => {
+	if (!req.session.userId) {
+		return res.status(401).json({ error: 'Not logged in' });
+	}
+
+	const comment = db.prepare(`
+		SELECT * FROM template_comments
+		WHERE id = ? AND template_id = ?
+	`).get(req.params.commentId, req.params.templateId);
+
+	if (!comment) {
+		return res.status(404).json({ error: 'Comment not found' });
+	}
+
+	if (comment.user_id !== req.session.userId) {
+		return res.status(403).json({ error: 'Cannot edit other users\' comments' });
+	}
+
+	const { content } = req.body;
+	if (!content || !content.trim()) {
+		return res.status(400).json({ error: 'Comment cannot be empty' });
+	}
+
+	db.prepare(`
+		UPDATE template_comments
+		SET content = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`).run(content.trim(), comment.id);
+
+	const updatedComment = db.prepare(`
+		SELECT c.*, u.username
+		FROM template_comments c
+		JOIN users u ON c.user_id = u.id
+		WHERE c.id = ?
+	`).get(comment.id);
+
+	res.json(updatedComment);
+});
+
+// Delete comment
+app.delete('/api/templates/:templateId/comments/:commentId', (req, res) => {
+	if (!req.session.userId) {
+		return res.status(401).json({ error: 'Not logged in' });
+	}
+
+	const comment = db.prepare(`
+		SELECT * FROM template_comments
+		WHERE id = ? AND template_id = ?
+	`).get(req.params.commentId, req.params.templateId);
+
+	if (!comment) {
+		return res.status(404).json({ error: 'Comment not found' });
+	}
+
+	if (comment.user_id !== req.session.userId) {
+		return res.status(403).json({ error: 'Cannot delete other users\' comments' });
+	}
+
+	db.prepare('DELETE FROM template_comments WHERE id = ?').run(comment.id);
+	res.json({ success: true });
 });
 
 // Update the client-side routing handler to use join
