@@ -2,6 +2,7 @@
     <div class="header">
         <div>
             <h1>{calculator.name}</h1>
+            <button class="rename-btn" on:click={renameCalculator}>Rename</button>
         </div>
         <div class="header-actions">
             <button class="publish-btn" on:click={publishTemplate}>Publish Template</button>
@@ -176,6 +177,24 @@
             alert('Failed to publish template');
         }
     }
+
+    async function renameCalculator() {
+        const newName = prompt('Enter a new name for your calculator:', calculator.name);
+        if (!newName || newName === calculator.name) return;
+
+        const response = await fetch(`/api/calculators/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newName })
+        });
+
+        if (response.ok) {
+            calculator.name = newName;
+            calculator = calculator; // Trigger reactivity
+        } else {
+            alert('Failed to rename calculator');
+        }
+    }
 </script>
 
 <style>
@@ -224,5 +243,11 @@
         display: flex;
         gap: 10px;
         align-items: center;
+    }
+
+    .header div:first-child {
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
 </style>
