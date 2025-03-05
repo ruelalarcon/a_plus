@@ -108,6 +108,7 @@ app.post('/api/calculators', (req, res) => {
 app.get('/api/calculators/:id', (req, res) => {
 	const calculator = db.prepare(`
 		SELECT c.*, t.id as template_id, t.name as template_name,
+			   t.user_id as template_user_id,
 			   COALESCE(v.vote, 0) as user_vote, t.vote_count
 		FROM calculators c
 		LEFT JOIN calculator_templates t ON c.template_id = t.id
@@ -252,7 +253,8 @@ app.get('/api/templates/search', (req, res) => {
 			t.term LIKE ? OR
 			t.year = ? OR
 			t.institution LIKE ?) AND
-			t.vote_count >= ?
+			t.vote_count >= ? AND
+			t.deleted = 0
 	`).get(
 		`%${query || ''}%`,
 		`%${term || ''}%`,
@@ -293,7 +295,8 @@ app.get('/api/templates/search', (req, res) => {
 			t.term LIKE ? OR
 			t.year = ? OR
 			t.institution LIKE ?) AND
-			t.vote_count >= ?
+			t.vote_count >= ? AND
+			t.deleted = 0
 		ORDER BY match_score DESC,
 			CASE WHEN t.institution LIKE ? THEN 0 ELSE 1 END,
 			CASE WHEN t.name LIKE ? THEN 0 ELSE 1 END,
@@ -635,6 +638,62 @@ app.delete('/api/templates/:templateId/comments/:commentId', (req, res) => {
 	}
 
 	db.prepare('DELETE FROM template_comments WHERE id = ?').run(comment.id);
+	res.json({ success: true });
+});
+
+// Get user's published templates
+app.get('/api/user/templates', (req, res) => {
+	if (!req.session.userId) {
+		return res.status(401).json({ error: 'Not logged in' });
+	}
+
+	const templates = db.prepare(`
+		SELECT t.*, u.username as creator_name,
+			(
+				SELECT COUNT(*)
+				FROM template_comments c
+				WHERE c.template_id = t.id
+			) as comment_count
+		FROM calculator_templates t
+		JOIN users u ON t.user_id = u.id
+		WHERE t.user_id = ? AND t.deleted = 0
+		ORDER BY t.created_at DESC
+	`).all(req.session.userId);
+
+	// Get assessments for each template
+	const templatesWithAssessments = templates.map(template => {
+		const assessments = db.prepare(`
+			SELECT * FROM template_assessments
+			WHERE template_id = ?
+		`).all(template.id);
+		return { ...template, assessments };
+	});
+
+	res.json(templatesWithAssessments);
+});
+
+// Soft delete template
+app.delete('/api/templates/:id', (req, res) => {
+	if (!req.session.userId) {
+		return res.status(401).json({ error: 'Not logged in' });
+	}
+
+	const template = db.prepare(`
+		SELECT * FROM calculator_templates
+		WHERE id = ? AND user_id = ?
+	`).get(req.params.id, req.session.userId);
+
+	if (!template) {
+		return res.status(404).json({ error: 'Template not found' });
+	}
+
+	// Mark template as deleted
+	db.prepare(`
+		UPDATE calculator_templates
+		SET deleted = 1
+		WHERE id = ?
+	`).run(template.id);
+
 	res.json({ success: true });
 });
 
