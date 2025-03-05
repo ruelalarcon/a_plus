@@ -1,7 +1,7 @@
 <div class="container">
 	<h1>Welcome</h1>
 	<div id="userSection">
-		{#if $username}
+		{#if $userId}
 			<div id="loggedInContent">
 				<p>Logged in as <span>{$username}</span></p>
 				<button on:click={logout}>Logout</button>
@@ -17,7 +17,7 @@
 
 <script>
 	import { Link } from 'svelte-routing';
-	import { username, logout } from '../lib/stores.js';
+	import { userId, username, logout } from '../lib/stores.js';
 </script>
 
 <style>

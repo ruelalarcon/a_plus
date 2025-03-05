@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 
 	// Import custom utilities
-	import { checkLoginStatus, username } from './lib/stores.js';
+	import { checkLoginStatus, userId, username } from './lib/stores.js';
 
 	// Import custom components
 	import Login from './components/Login.svelte';
@@ -20,7 +20,7 @@
 <Router>
 	<main>
 		<Route path="/">
-			{#if $username}
+			{#if $userId}
 				<Dashboard />
 			{:else}
 				<Home />

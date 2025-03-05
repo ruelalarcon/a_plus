@@ -59,15 +59,15 @@ app.post('/api/logout', (req, res) => {
 	res.json({ success: true });
 });
 
-// Add this new endpoint before app.listen
+// Update the user endpoint to include userId
 app.get('/api/user', (req, res) => {
 	if (!req.session.userId) {
 		return res.status(401).json({ error: 'Not logged in' });
 	}
 
-	const stmt = db.prepare('SELECT username FROM users WHERE id = ?');
+	const stmt = db.prepare('SELECT id, username FROM users WHERE id = ?');
 	const user = stmt.get(req.session.userId);
-	res.json({ username: user.username });
+	res.json({ userId: user.id, username: user.username });
 });
 
 // Get user's calculators
