@@ -24,8 +24,10 @@ db.exec(`
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		user_id INTEGER NOT NULL,
 		name TEXT NOT NULL,
+		template_id INTEGER,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (user_id) REFERENCES users (id)
+		FOREIGN KEY (user_id) REFERENCES users (id),
+		FOREIGN KEY (template_id) REFERENCES calculator_templates (id)
 	)
 `);
 
