@@ -17,6 +17,7 @@
 						<p>Current Average: {calculateFinalGrade(calc.assessments)}%</p>
 						<div class="calculator-actions">
 							<Link to={`/calculator/${calc.id}`}>Open Calculator</Link>
+							<button on:click={() => renameCalculator(calc)}>Rename</button>
 							<button on:click={() => deleteCalculator(calc.id, calc.name)}>Delete</button>
 						</div>
 					</div>
@@ -83,6 +84,27 @@
 
 		if (response.ok) {
 			calculators = calculators.filter(calc => calc.id !== id);
+		}
+	}
+
+	async function renameCalculator(calculator) {
+		const newName = prompt('Enter a new name for your calculator:', calculator.name);
+		if (!newName || newName === calculator.name) return;
+
+		const response = await fetch(`/api/calculators/${calculator.id}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name: newName })
+		});
+
+		if (response.ok) {
+			calculators = calculators.map(calc => 
+				calc.id === calculator.id 
+					? { ...calc, name: newName }
+					: calc
+			);
+		} else {
+			alert('Failed to rename calculator');
 		}
 	}
 
