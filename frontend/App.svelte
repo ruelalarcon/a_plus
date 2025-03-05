@@ -12,6 +12,7 @@
 	import Home from './components/Home.svelte';
 	import Dashboard from './components/Dashboard.svelte';
 	import GradeCalculator from './components/GradeCalculator.svelte';
+	import Search from './components/Search.svelte';
 
 	// Check login status on mount
 	onMount(checkLoginStatus);
@@ -34,6 +35,9 @@
 		</Route>
 		<Route path="/calculator/:id" let:params>
 			<GradeCalculator id={params.id} />
+		</Route>
+		<Route path="/search">
+			<Search />
 		</Route>
 	</main>
 </Router>
