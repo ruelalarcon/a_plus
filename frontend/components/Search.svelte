@@ -53,9 +53,19 @@
 										on:click={() => handleVote(template, -1)}
 									>▼</button>
 								</div>
-								<button on:click={() => useTemplate(template.id)}>Use Template</button>
+								<div class="action-buttons">
+									<button on:click={() => useTemplate(template.id)}>Use Template</button>
+									<button on:click={() => toggleComments(template.id)}>
+										{activeComments === template.id ? 'Hide Comments' : 'Show Comments'}
+									</button>
+								</div>
 							</div>
 						</div>
+						{#if activeComments === template.id}
+							<div class="comments-container">
+								<Comments templateId={template.id} />
+							</div>
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -77,6 +87,7 @@
 <script>
 	import { navigate } from 'svelte-routing';
 	import debounce from 'lodash/debounce';
+	import Comments from './Comments.svelte';
 
 	let searchQuery = '';
 	let term = '';
@@ -87,6 +98,7 @@
 	let totalPages = 1;
 	let totalResults = 0;
 	const ITEMS_PER_PAGE = 2;
+	let activeComments = null;
 
 	const debouncedSearch = debounce(async () => {
 		const params = new URLSearchParams({
@@ -162,6 +174,10 @@
 		}
 	}
 
+	function toggleComments(templateId) {
+		activeComments = activeComments === templateId ? null : templateId;
+	}
+
 	// Initial search on mount
 	debouncedSearch();
 </script>
@@ -186,7 +202,7 @@
 
 	.template-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 		gap: 20px;
 		margin-bottom: 20px;
 	}
@@ -242,5 +258,15 @@
 		gap: 20px;
 		align-items: center;
 		margin-top: 20px;
+	}
+
+	.action-buttons {
+		display: flex;
+		gap: 10px;
+	}
+
+	.comments-container {
+		margin-top: 20px;
+		border-top: 1px solid #eee;
 	}
 </style>
