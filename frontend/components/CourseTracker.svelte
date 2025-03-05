@@ -103,14 +103,7 @@
         const response = await fetch('/api/courses');
         if (response.ok) {
             const data = await response.json();
-            courses = data.map(course => ({
-                ...course,
-                completed: Boolean(course.completed),
-                prerequisites: course.prerequisites.map(p => ({
-                    ...p,
-                    completed: Boolean(p.completed)
-                }))
-            }));
+            courses = data;
         }
     }
 
@@ -135,10 +128,11 @@
     }
 
     async function toggleComplete(course) {
+        const newStatus = course.completed ? 0 : 1;
         const response = await fetch(`/api/courses/${course.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ completed: !course.completed })
+            body: JSON.stringify({ completed: newStatus })
         });
 
         if (response.ok) {
@@ -188,7 +182,17 @@
         });
 
         if (response.ok) {
-            courses = courses.filter(c => c.id !== course.id);
+            courses = courses
+                .filter(c => c.id !== course.id)
+                .map(c => ({
+                    ...c,
+                    prerequisites: c.prerequisites.filter(p => p.id !== course.id)
+                }));
+
+            selectedPrereqs = selectedPrereqs.filter(id => id !== course.id);
+            if (editingCourse) {
+                editingPrereqs = editingPrereqs.filter(id => id !== course.id);
+            }
         }
     }
 
