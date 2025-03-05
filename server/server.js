@@ -252,7 +252,7 @@ app.get('/api/templates/search', (req, res) => {
 			(t.name LIKE ? OR            -- Match on name
 			t.term LIKE ? OR             -- Match on term
 			t.year = ? OR                -- Exact year match
-			t.institution LIKE ?) AND     -- Match on institution
+			t.institution LIKE ?) AND    -- Match on institution
 			t.vote_count >= ? AND        -- Minimum vote threshold
 			t.deleted = 0                -- Exclude deleted templates
 	`).get(

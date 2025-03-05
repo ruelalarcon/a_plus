@@ -68,7 +68,7 @@ db.exec(`
 		user_id INTEGER NOT NULL,
 		vote INTEGER NOT NULL CHECK (vote IN (-1, 1)), -- Upvote (1) or downvote (-1)
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		PRIMARY KEY (template_id, user_id),           -- One vote per user per template
+		PRIMARY KEY (template_id, user_id),            -- One vote per user per template
 		FOREIGN KEY (template_id) REFERENCES calculator_templates (id),
 		FOREIGN KEY (user_id) REFERENCES users (id)
 	)
@@ -105,7 +105,7 @@ db.exec(`
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		user_id INTEGER NOT NULL,        -- Course owner
 		name TEXT NOT NULL,              -- Course name
-		completed BOOLEAN DEFAULT 0,      -- Track completion status
+		completed BOOLEAN DEFAULT 0,     -- Track completion status
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (user_id) REFERENCES users (id)
 	)
