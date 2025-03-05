@@ -15,7 +15,10 @@
                     <div class="calculator-card">
                         <h3>{calc.name}</h3>
                         <p>Current Average: {calculateFinalGrade(calc.assessments)}%</p>
-                        <Link to={`/calculator/${calc.id}`}>Open Calculator</Link>
+                        <div class="calculator-actions">
+                            <Link to={`/calculator/${calc.id}`}>Open Calculator</Link>
+                            <button on:click={() => deleteCalculator(calc.id, calc.name)}>Delete</button>
+                        </div>
                     </div>
                 {/each}
             </div>
@@ -64,21 +67,35 @@
         }
     }
 
+    async function deleteCalculator(id, name) {
+        if (!confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) {
+            return;
+        }
+
+        const response = await fetch(`/api/calculators/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            calculators = calculators.filter(calc => calc.id !== id);
+        }
+    }
+
     function calculateFinalGrade(assessments) {
         // Filter to only assessments that have grades
-        const gradedAssessments = assessments.filter(assessment => 
-            assessment.grade !== null && 
-            assessment.grade !== undefined && 
+        const gradedAssessments = assessments.filter(assessment =>
+            assessment.grade !== null &&
+            assessment.grade !== undefined &&
             assessment.grade !== '' &&
-            assessment.weight !== null && 
-            assessment.weight !== undefined && 
+            assessment.weight !== null &&
+            assessment.weight !== undefined &&
             assessment.weight !== '');
 
         if (gradedAssessments.length === 0) return 'N/A';
 
-        const totalWeight = gradedAssessments.reduce((sum, assessment) => 
+        const totalWeight = gradedAssessments.reduce((sum, assessment) =>
             sum + Number(assessment.weight), 0);
-        
+
         if (totalWeight === 0) return 'N/A';
 
         const weightedSum = gradedAssessments.reduce((sum, assessment) => {
@@ -125,5 +142,11 @@
 
     .calculator-card h3 {
         margin: 0 0 10px 0;
+    }
+
+    .calculator-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
     }
 </style>
