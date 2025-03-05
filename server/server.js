@@ -187,6 +187,199 @@ app.delete('/api/calculators/:id', async (req, res) => {
 	res.json({ success: true });
 });
 
+// Publish calculator as template
+app.post('/api/templates', (req, res) => {
+	if (!req.session.userId) {
+		return res.status(401).json({ error: 'Not logged in' });
+	}
+
+	const { name, term, year, institution, assessments } = req.body;
+
+	const db_transaction = db.transaction(() => {
+		// Create template
+		const templateStmt = db.prepare(`
+			INSERT INTO calculator_templates (user_id, name, term, year, institution)
+			VALUES (?, ?, ?, ?, ?)
+		`);
+		const result = templateStmt.run(req.session.userId, name, term, year, institution);
+		const templateId = result.lastInsertRowid;
+
+		// Add assessments
+		const assessmentStmt = db.prepare(`
+			INSERT INTO template_assessments (template_id, name, weight)
+			VALUES (?, ?, ?)
+		`);
+
+		for (const assessment of assessments) {
+			assessmentStmt.run(templateId, assessment.name, assessment.weight);
+		}
+
+		return templateId;
+	});
+
+	const templateId = db_transaction();
+	res.json({ id: templateId });
+});
+
+// Search templates
+app.get('/api/templates/search', (req, res) => {
+	const MAX_LIMIT = 100;
+	const { query, term, year, institution, page = 1, limit = 20 } = req.query;
+	const safeLimit = Math.min(Number(limit), MAX_LIMIT);
+	const offset = (page - 1) * safeLimit;
+
+	// First get total count
+	const countQuery = db.prepare(`
+		SELECT COUNT(*) as total
+		FROM calculator_templates t
+		WHERE
+			t.name LIKE ? OR
+			t.term LIKE ? OR
+			t.year = ? OR
+			t.institution LIKE ?
+	`).get(
+		`%${query || ''}%`,
+		`%${term || ''}%`,
+		year || 0,
+		`%${institution || ''}%`
+	);
+
+	// Then get paginated results
+	let templates = db.prepare(`
+		SELECT
+			t.*,
+			u.username as creator_name,
+			(
+				CASE
+					WHEN t.name LIKE ? THEN 1
+					ELSE 0
+				END +
+				CASE
+					WHEN t.term LIKE ? THEN 1
+					ELSE 0
+				END +
+				CASE
+					WHEN t.year = ? THEN 1
+					ELSE 0
+				END +
+				CASE
+					WHEN t.institution LIKE ? THEN 1
+					ELSE 0
+				END
+			) as match_score
+		FROM calculator_templates t
+		JOIN users u ON t.user_id = u.id
+		WHERE
+			t.name LIKE ? OR
+			t.term LIKE ? OR
+			t.year = ? OR
+			t.institution LIKE ?
+		ORDER BY match_score DESC,
+			CASE WHEN t.institution LIKE ? THEN 0 ELSE 1 END,
+			CASE WHEN t.name LIKE ? THEN 0 ELSE 1 END,
+			CASE WHEN t.term LIKE ? THEN 0 ELSE 1 END,
+			t.created_at DESC
+		LIMIT ? OFFSET ?
+	`).all(
+		`%${query || ''}%`,
+		`%${term || ''}%`,
+		year || 0,
+		`%${institution || ''}%`,
+		`%${query || ''}%`,
+		`%${term || ''}%`,
+		year || 0,
+		`%${institution || ''}%`,
+		`%${institution || ''}%`,
+		`%${query || ''}%`,
+		`%${term || ''}%`,
+		safeLimit,
+		offset
+	);
+
+	// Get assessments for each template
+	templates = templates.map(template => {
+		const assessments = db.prepare(`
+			SELECT * FROM template_assessments
+			WHERE template_id = ?
+		`).all(template.id);
+		return { ...template, assessments };
+	});
+
+	res.json({
+		templates,
+		total: countQuery.total,
+		page: Number(page),
+		limit: Number(safeLimit)
+	});
+});
+
+// Get specific template
+app.get('/api/templates/:id', (req, res) => {
+	const template = db.prepare(`
+		SELECT t.*, u.username as creator_name
+		FROM calculator_templates t
+		JOIN users u ON t.user_id = u.id
+		WHERE t.id = ?
+	`).get(req.params.id);
+
+	if (!template) {
+		return res.status(404).json({ error: 'Template not found' });
+	}
+
+	const assessments = db.prepare(`
+		SELECT * FROM template_assessments
+		WHERE template_id = ?
+	`).all(template.id);
+
+	res.json({ template, assessments });
+});
+
+// Create calculator from template
+app.post('/api/templates/:id/use', (req, res) => {
+	if (!req.session.userId) {
+		return res.status(401).json({ error: 'Not logged in' });
+	}
+
+	const template = db.prepare(`
+		SELECT * FROM calculator_templates
+		WHERE id = ?
+	`).get(req.params.id);
+
+	if (!template) {
+		return res.status(404).json({ error: 'Template not found' });
+	}
+
+	const db_transaction = db.transaction(() => {
+		// Create new calculator
+		const calcStmt = db.prepare(`
+			INSERT INTO calculators (user_id, name)
+			VALUES (?, ?)
+		`);
+		const result = calcStmt.run(req.session.userId, template.name);
+		const calculatorId = result.lastInsertRowid;
+
+		// Copy template assessments
+		const assessments = db.prepare(`
+			SELECT * FROM template_assessments
+			WHERE template_id = ?
+		`).all(template.id);
+
+		const assessmentStmt = db.prepare(`
+			INSERT INTO assessments (calculator_id, name, weight, grade)
+			VALUES (?, ?, ?, NULL)
+		`);
+
+		for (const assessment of assessments) {
+			assessmentStmt.run(calculatorId, assessment.name, assessment.weight);
+		}
+
+		return calculatorId;
+	});
+
+	const calculatorId = db_transaction();
+	res.json({ id: calculatorId });
+});
+
 // Update the client-side routing handler to use join
 app.get('*', (req, res) => {
 	res.sendFile(join(__dirname, '../dist/index.html'));
