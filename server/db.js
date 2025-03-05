@@ -92,4 +92,25 @@ db.exec(`
 	)
 `);
 
+db.exec(`
+	CREATE TABLE IF NOT EXISTS courses (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		name TEXT NOT NULL,
+		completed BOOLEAN DEFAULT 0,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (user_id) REFERENCES users (id)
+	)
+`);
+
+db.exec(`
+	CREATE TABLE IF NOT EXISTS course_prerequisites (
+		course_id INTEGER NOT NULL,
+		prerequisite_id INTEGER NOT NULL,
+		PRIMARY KEY (course_id, prerequisite_id),
+		FOREIGN KEY (course_id) REFERENCES courses (id),
+		FOREIGN KEY (prerequisite_id) REFERENCES courses (id)
+	)
+`);
+
 export default db;
