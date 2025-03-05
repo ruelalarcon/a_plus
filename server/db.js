@@ -51,6 +51,7 @@ db.exec(`
 		year INTEGER NOT NULL,
 		institution TEXT NOT NULL,
 		vote_count INTEGER DEFAULT 1,
+		deleted BOOLEAN DEFAULT 0,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (user_id) REFERENCES users (id)
 	)
