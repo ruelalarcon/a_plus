@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import db from './db.js';
 
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -99,9 +100,9 @@ app.post('/api/calculators', (req, res) => {
 		return res.status(401).json({ error: 'Not logged in' });
 	}
 
-	const stmt = db.prepare('INSERT INTO calculators (user_id, name) VALUES (?, ?)');
-	const result = stmt.run(req.session.userId, req.body.name);
-	res.json({ id: result.lastInsertRowid, name: req.body.name });
+	const stmt = db.prepare('INSERT INTO calculators (user_id, name, min_pass_grade) VALUES (?, ?, ?)');
+	const result = stmt.run(req.session.userId, req.body.name, req.body.min_pass_grade);
+	res.json({ id: result.lastInsertRowid, name: req.body.name , min_pass_grade: req.body.min_pass_grade });
 });
 
 // Get calculator
@@ -125,7 +126,30 @@ app.get('/api/calculators/:id', (req, res) => {
 		WHERE calculator_id = ?
 	`).all(calculator.id);
 
-	res.json({ calculator, assessments });
+	let currentGrade = 0;
+	let totalWeight = 0;
+
+	assessments.forEach(assessment => {
+		if (assessment.grade !== null) {
+			currentGrade += (assessment.grade * assessment.weight);
+			totalWeight += assessment.weight;
+		}
+	});
+
+	let finalGrade = null;
+	let isPassing = null;
+
+	if (totalWeight > 0) {
+		finalGrade = currentGrade / totalWeight;
+		isPassing = calculator.min_pass_grade === null || finalGrade >= calculator.min_pass_grade;
+	}
+
+	res.json({
+		calculator,
+		assessments,
+		currentGrade: finalGrade,
+		isPassing
+	});
 });
 
 // Update calculator assessments
@@ -143,10 +167,26 @@ app.put('/api/calculators/:id', (req, res) => {
 		return res.status(404).json({ error: 'Calculator not found' });
 	}
 
-	if (req.body.name !== undefined) {
-		// Update name
-		db.prepare('UPDATE calculators SET name = ? WHERE id = ?')
-			.run(req.body.name, calculator.id);
+	if (req.body.name !== undefined || req.body.min_pass_grade !== undefined) {
+		
+		const updates = [];
+		const params = [];
+
+		if (req.body.name !== undefined) {
+			updates.push('name = ?');
+			params.push(req.body.name);
+		}
+		if (req.body.min_pass_grade !== undefined) {
+			updates.push('min_pass_grade = ?');
+			params.push(req.body.min_pass_grade);
+		}
+		params.push(calculator.id);
+
+		db.prepare(`
+			UPDATE calculators 
+			SET ${updates.join(', ')} 
+			WHERE id = ?
+		`).run(...params);
 	} else if (req.body.assessments) {
 		// Update assessments
 		const db_transaction = db.transaction((assessments) => {
@@ -202,15 +242,15 @@ app.post('/api/templates', (req, res) => {
 		return res.status(401).json({ error: 'Not logged in' });
 	}
 
-	const { name, term, year, institution, assessments } = req.body;
+	const { name, term, year, institution, assessments, min_pass_grade } = req.body;
 
 	const db_transaction = db.transaction(() => {
 		// Create template with initial vote count of 1
 		const templateStmt = db.prepare(`
-			INSERT INTO calculator_templates (user_id, name, term, year, institution, vote_count)
-			VALUES (?, ?, ?, ?, ?, 1)
+			INSERT INTO calculator_templates (user_id, name, term, year, institution, vote_count, min_pass_grade)
+			VALUES (?, ?, ?, ?, ?, 1, ?)
 		`);
-		const result = templateStmt.run(req.session.userId, name, term, year, institution);
+		const result = templateStmt.run(req.session.userId, name, term, year, institution, min_pass_grade);
 		const templateId = result.lastInsertRowid;
 
 		// Add creator's automatic upvote
@@ -387,10 +427,10 @@ app.post('/api/templates/:id/use', (req, res) => {
 	const db_transaction = db.transaction(() => {
 		// Create new calculator with template reference
 		const calcStmt = db.prepare(`
-			INSERT INTO calculators (user_id, name, template_id)
-			VALUES (?, ?, ?)
+			INSERT INTO calculators (user_id, name, template_id, min_pass_grade)
+			VALUES (?, ?, ?, ?)
 		`);
-		const result = calcStmt.run(req.session.userId, template.name, template.id);
+		const result = calcStmt.run(req.session.userId, template.name, template.id, template.min_pass_grade);
 		const calculatorId = result.lastInsertRowid;
 
 		// Copy template assessments
