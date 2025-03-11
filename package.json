@@ -20,7 +20,9 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "autoprefixer": "^10.4.20",
+    "bits-ui": "^0.22.0",
     "clsx": "^2.1.1",
+    "lucide-svelte": "^0.479.0",
     "prettier-plugin-tailwindcss": "^0.6.10",
     "svelte": "^4.2.0",
     "tailwind-merge": "^3.0.2",
