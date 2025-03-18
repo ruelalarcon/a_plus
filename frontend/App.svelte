@@ -14,6 +14,9 @@
 	import GradeCalculator from './routes/GradeCalculator.svelte';
 	import Search from './routes/Search.svelte';
 	import TemplatePreview from './routes/TemplatePreview.svelte';
+	import UserCalcs from "./routes/UserCalcs.svelte";
+	import UserTemplates from "./routes/UserTemplates.svelte";
+	import UserCourses from "./routes/UserCourses.svelte";
 
 	let isLoading = true;
 
@@ -73,6 +76,21 @@
 			</Route>
 			<Route path="/template/:id" let:params>
 				<TemplatePreview id={params.id} />
+			</Route>
+			<Route path="/my-templates">
+				{#if $userId}
+					<UserTemplates />
+				{/if}
+			</Route>
+			<Route path="/my-course-tracker">
+				{#if $userId}
+					<UserCourses />
+				{/if}
+			</Route>
+			<Route path="/my-calcs">
+				{#if $userId}
+					<UserCalcs />
+				{/if}
 			</Route>
 		{/if}
 	</main>

@@ -2,30 +2,19 @@
     import { username, logout } from '../lib/stores.js';
     import Header from '../components/Header.svelte';
     import Sidebar from '../components/Sidebar.svelte';
-    import CourseTracker from '../components/CourseTracker.svelte';
     import CalculatorList from '../components/CalculatorList.svelte';
-    import TemplateList from '../components/TemplateList.svelte';
 </script>
 
-<main class="container">
+<main class="usrcalc">
     <Header />
     <Sidebar />
-    <div class="dashboard-content">
-        <!-- For testing purposes; scrolling mainly. -->
+    <div class="focus">
         <CalculatorList />
-        <TemplateList />
-        <CourseTracker />
-        <CalculatorList />
-        <TemplateList />
-        <CourseTracker />
-        <CalculatorList />
-        <TemplateList />
-        <CourseTracker />
     </div>
 </main>
 
 <style>
-    .dashboard-content {
+    .focus {
         display: flex;
         flex-direction: column;
         gap: 40px;

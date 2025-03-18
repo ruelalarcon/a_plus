@@ -1,8 +1,7 @@
 {
     "compilerOptions": {
-        "baseUrl": ".",
         "paths": {
-            "$lib": ["./frontend"],
+            "$lib": ["./frontend/"],
             "$lib/*": ["./frontend/*"],
             "$lib/components": ["./frontend/components"]
         }
