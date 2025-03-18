@@ -1,6 +1,7 @@
 <script lang="ts">
-    import { username, logout } from '../lib/stores.js';
+    import { username } from '../lib/stores.js';
     import { Input } from "$lib/components/ui/input";
+    import UserDropdown from "./UserDropdown.svelte";
 </script>
 
 <div class="header">
@@ -13,9 +14,7 @@
     <div class="user-info">
         <p>Welcome, <strong>{$username}</strong></p>
         <nav>
-            <button on:click={logout}>
-                Logout
-            </button>
+            <UserDropdown></UserDropdown>
         </nav>
     </div>
 </div>
