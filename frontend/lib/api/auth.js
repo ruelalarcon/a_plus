@@ -1,6 +1,6 @@
 /**
- * Authentication API module
- * Provides functions for user authentication while maintaining the simple fetch-based approach
+ * @module auth
+ * API module for managing authentication requests
  */
 
 /**

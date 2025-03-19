@@ -1,12 +1,30 @@
+/**
+ * @module stores
+ * Authentication state management module using Svelte stores
+ */
+
 import { writable } from 'svelte/store';
 import { navigate } from 'svelte-routing';
 import * as authApi from './api/auth.js';
 
-// Create stores
+/**
+ * Store containing the current user's ID
+ * @type {import('svelte/store').Writable<number|null>}
+ */
 export const userId = writable(null);
+
+/**
+ * Store containing the current user's username
+ * @type {import('svelte/store').Writable<string|null>}
+ */
 export const username = writable(null);
 
-// Check login status
+/**
+ * Checks the current user's login status by making an API call
+ * Updates userId and username stores based on the response
+ * @async
+ * @returns {Promise<void>}
+ */
 export async function checkLoginStatus() {
 	const response = await authApi.getUser();
 	if (response.ok) {
@@ -19,7 +37,12 @@ export async function checkLoginStatus() {
 	}
 }
 
-// Logout
+/**
+ * Logs out the current user and clears authentication stores
+ * Redirects to home page after successful logout
+ * @async
+ * @returns {Promise<void>}
+ */
 export async function logout() {
 	const response = await authApi.logout();
 	if (response.ok) {
@@ -29,5 +52,5 @@ export async function logout() {
 	}
 }
 
-// Initialize auth state
+// Initialize auth state on module load
 checkLoginStatus();

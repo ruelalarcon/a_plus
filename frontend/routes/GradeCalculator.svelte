@@ -14,7 +14,6 @@
     $: finalGrade = calculateFinalGrade(assessments);
 
     let showComments = false;
-    let loading = false;
 
     onMount(async () => {
         await loadCalculator();
@@ -109,11 +108,6 @@
             console.error('Error renaming calculator:', error);
             alert('Failed to rename calculator');
         }
-    }
-
-    function handleVoteUpdate(voteCount, userVote) {
-        calculator.vote_count = voteCount;
-        calculator.user_vote = userVote;
     }
 </script>
 

@@ -1,15 +1,59 @@
+/**
+ * @module calculators
+ * API module for managing grade calculators
+ */
+
+/**
+ * Fetch all calculators for the current user
+ * @returns {Promise<Array<{
+ *   id: number,
+ *   name: string,
+ *   assessments: Array<{
+ *     id: number,
+ *     name: string,
+ *     weight: number,
+ *     grade: number|null
+ *   }>
+ * }>>} List of user's calculators with their assessments
+ * @throws {Error} If the API request fails
+ */
 export async function getCalculators() {
     const response = await fetch('/api/calculators');
     if (!response.ok) throw new Error('Failed to fetch calculators');
     return response.json();
 }
 
+/**
+ * Fetch a specific calculator by ID
+ * @param {number} id - Calculator ID
+ * @returns {Promise<{
+ *   id: number,
+ *   name: string,
+ *   template_id: number|null,
+ *   assessments: Array<{
+ *     id: number,
+ *     name: string,
+ *     weight: number,
+ *     grade: number|null
+ *   }>
+ * }>} Calculator details with assessments
+ * @throws {Error} If the API request fails
+ */
 export async function getCalculator(id) {
     const response = await fetch(`/api/calculators/${id}`);
     if (!response.ok) throw new Error('Failed to fetch calculator');
     return response.json();
 }
 
+/**
+ * Create a new calculator
+ * @param {string} name - Calculator name
+ * @returns {Promise<{
+ *   id: number,
+ *   name: string
+ * }>} Newly created calculator details
+ * @throws {Error} If the API request fails
+ */
 export async function createCalculator(name) {
     const response = await fetch('/api/calculators', {
         method: 'POST',
@@ -20,6 +64,19 @@ export async function createCalculator(name) {
     return response.json();
 }
 
+/**
+ * Update an existing calculator
+ * @param {number} id - Calculator ID
+ * @param {Object} data - Calculator data to update
+ * @param {string} [data.name] - New calculator name
+ * @param {Array<{
+ *   name: string,
+ *   weight: number,
+ *   grade: number|null
+ * }>} [data.assessments] - New list of assessments
+ * @returns {Promise<Object>} Updated calculator details
+ * @throws {Error} If the API request fails
+ */
 export async function updateCalculator(id, data) {
     const response = await fetch(`/api/calculators/${id}`, {
         method: 'PUT',
@@ -30,6 +87,12 @@ export async function updateCalculator(id, data) {
     return response.json();
 }
 
+/**
+ * Delete a calculator
+ * @param {number} id - Calculator ID to delete
+ * @returns {Promise<{success: boolean}>}
+ * @throws {Error} If the API request fails
+ */
 export async function deleteCalculator(id) {
     const response = await fetch(`/api/calculators/${id}`, {
         method: 'DELETE'
@@ -38,6 +101,18 @@ export async function deleteCalculator(id) {
     return response.json();
 }
 
+/**
+ * Publish a calculator as a template
+ * @param {number} id - Calculator ID to publish
+ * @param {Object} templateData - Template data
+ * @param {string} templateData.name - Template name
+ * @param {string} templateData.term - Academic term
+ * @param {string} templateData.year - Academic year
+ * @param {string} templateData.institution - Institution name
+ * @param {Array<{name: string, weight: number}>} templateData.assessments - Assessment structure
+ * @returns {Promise<{id: number}>} Newly created template ID
+ * @throws {Error} If the API request fails
+ */
 export async function publishTemplate(id, templateData) {
     const response = await fetch('/api/templates', {
         method: 'POST',
