@@ -99,9 +99,9 @@ app.post('/api/calculators', (req, res) => {
 		return res.status(401).json({ error: 'Not logged in' });
 	}
 
-	const stmt = db.prepare('INSERT INTO calculators (user_id, name) VALUES (?, ?)');
-	const result = stmt.run(req.session.userId, req.body.name);
-	res.json({ id: result.lastInsertRowid, name: req.body.name });
+	const stmt = db.prepare('INSERT INTO calculators (user_id, name, min_desired_grade) VALUES (?, ?, ?)');
+	const result = stmt.run(req.session.userId, req.body.name, req.body.min_desired_grade || null);
+	res.json({ id: result.lastInsertRowid, name: req.body.name, min_desired_grade: req.body.min_desired_grade || null });
 });
 
 // Get calculator
@@ -143,10 +143,25 @@ app.put('/api/calculators/:id', (req, res) => {
 		return res.status(404).json({ error: 'Calculator not found' });
 	}
 
-	if (req.body.name !== undefined) {
-		// Update name
-		db.prepare('UPDATE calculators SET name = ? WHERE id = ?')
-			.run(req.body.name, calculator.id);
+	if (req.body.name !== undefined || req.body.min_desired_grade !== undefined) {
+		// Update name and/or min_desired_grade
+		const updates = [];
+		const params = [];
+		if (req.body.name !== undefined) {
+			updates.push('name = ?');
+			params.push(req.body.name);
+		}
+		if (req.body.min_desired_grade !== undefined) {
+			updates.push('min_desired_grade = ?');
+			params.push(req.body.min_desired_grade);
+		}
+		params.push(calculator.id);
+
+		db.prepare(`
+			UPDATE calculators
+			SET ${updates.join(', ')}
+			WHERE id = ?
+		`).run(...params);
 	} else if (req.body.assessments) {
 		// Update assessments
 		const db_transaction = db.transaction((assessments) => {
@@ -816,8 +831,8 @@ app.put('/api/courses/:id', (req, res) => {
 		// Update prerequisites if provided
 		if (prerequisiteIds !== undefined) {
 			// Remove existing prerequisites
-			db.prepare('DELETE FROM course_prerequisites WHERE course_id = ?')
-				.run(course.id);
+			db.prepare('DELETE FROM course_prerequisites WHERE course_id = ? OR prerequisite_id = ?')
+				.run(course.id, course.id);
 
 			// Add new prerequisites
 			if (prerequisiteIds.length > 0) {

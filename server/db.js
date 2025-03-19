@@ -27,6 +27,7 @@ db.exec(`
 		user_id INTEGER NOT NULL,       -- Owner of the calculator
 		name TEXT NOT NULL,             -- Display name
 		template_id INTEGER,            -- Optional reference to template it was created from
+		min_desired_grade DECIMAL(5,2), -- Minimum desired grade (nullable)
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (user_id) REFERENCES users (id),
 		FOREIGN KEY (template_id) REFERENCES calculator_templates (id)
