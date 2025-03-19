@@ -5,13 +5,14 @@
     import Card from '../components/Card.svelte';
     import VoteButtons from '../components/VoteButtons.svelte';
     import * as calculatorApi from '../lib/api/calculators.js';
-    import { calculateFinalGrade } from '../lib/utils/gradeCalculations.js';
+    import { calculateFinalGrade, calculateRequiredGrade } from '../lib/utils/gradeCalculations.js';
 
     export let id; // Calculator ID from route params
 
-    let calculator = { name: '', id: '' };
+    let calculator = { name: '', id: '', min_desired_grade: '' };
     let assessments = [];
     $: finalGrade = calculateFinalGrade(assessments);
+    $: requiredGrade = calculateRequiredGrade(assessments, calculator.min_desired_grade);
 
     let showComments = false;
 
@@ -39,7 +40,10 @@
 
     async function saveCalculator() {
         try {
-            await calculatorApi.updateCalculator(id, { assessments });
+            await calculatorApi.updateCalculator(id, {
+                assessments,
+                min_desired_grade: calculator.min_desired_grade
+            });
             alert('Changes saved successfully!');
         } catch (error) {
             console.error('Error saving calculator:', error);
@@ -162,9 +166,24 @@
             <button type="button" on:click={addAssessment}>Add Assessment</button>
         </section>
 
+        <div class="min-desired-grade">
+            <label for="min-desired-grade">Minimum Desired Grade (%):</label>
+            <input
+                id="min-desired-grade"
+                type="number"
+                bind:value={calculator.min_desired_grade}
+                min="0"
+                max="100"
+                placeholder="Enter your target grade"
+            />
+        </div>
+
         <Card
             title="Final Grade"
-            details={[`${finalGrade}%`]}
+            details={[
+                `Current Average: ${finalGrade}%`,
+                `Required Grade on Remaining Assessments: ${requiredGrade}%`
+            ]}
         >
             <div slot="actions">
                 <button on:click={saveCalculator}>Save Changes</button>
@@ -238,5 +257,9 @@
         grid-template-columns: 2fr 1fr 1fr auto;
         gap: 10px;
         margin-bottom: 10px;
+    }
+
+    .min-desired-grade {
+        margin: 20px 0;
     }
 </style>
