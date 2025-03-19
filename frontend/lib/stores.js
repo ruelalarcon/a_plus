@@ -23,17 +23,28 @@ export const username = writable(null);
  * Checks the current user's login status by making an API call
  * Updates userId and username stores based on the response
  * @async
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} Returns true if user is logged in, false otherwise
  */
-export async function checkLoginStatus() {
-	const response = await authApi.getUser();
-	if (response.ok) {
-		const data = await response.json();
-		userId.set(data.userId);
-		username.set(data.username);
-	} else {
+export async function updateSessionState() {
+	try {
+		const response = await authApi.getUser();
+		if (response.ok) {
+			const data = await response.json();
+			userId.set(data.userId);
+			username.set(data.username);
+			return true;
+		} else {
+			// Clear the stores but don't throw an error for 401
+			userId.set(null);
+			username.set(null);
+			return false;
+		}
+	} catch (error) {
+		// Handle network errors or other issues
+		console.error('Error checking login status:', error);
 		userId.set(null);
 		username.set(null);
+		return false;
 	}
 }
 
@@ -51,6 +62,3 @@ export async function logout() {
 		navigate('/', { replace: true });
 	}
 }
-
-// Initialize auth state on module load
-checkLoginStatus();

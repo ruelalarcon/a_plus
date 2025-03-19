@@ -252,7 +252,7 @@ Courses:
 The app uses Svelte stores for global state:
 - userId: Current user's ID or null
 - username: Current username or null
-- checkLoginStatus(): Async function to verify session
+- updateSessionState(): Async function to verify session
 
 ## Error Handling
 

@@ -1,6 +1,6 @@
 <script>
     import { navigate, Link } from 'svelte-routing';
-    import { checkLoginStatus } from '../lib/stores.js';
+    import { updateSessionState } from '../lib/stores.js';
     import * as authApi from '../lib/api/auth.js';
 
     async function handleSubmit(e) {
@@ -12,7 +12,7 @@
         );
 
         if (response.ok) {
-            await checkLoginStatus();
+            await updateSessionState();
             // Check if there's a saved redirect path (e.g., from template preview)
             const redirectPath = localStorage.getItem('redirectAfterAuth');
             if (redirectPath) {
