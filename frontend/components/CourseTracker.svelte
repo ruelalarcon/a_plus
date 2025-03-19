@@ -1,3 +1,146 @@
+<script>
+    import { onMount } from 'svelte';
+    import * as courseApi from '../lib/api/courses.js';
+
+    let courses = [];
+    let newCourseName = '';
+    let selectedPrereqs = [];
+    let editingCourse = null;
+    let editingPrereqs = [];
+
+    onMount(async () => {
+        await loadCourses();
+    });
+
+    async function loadCourses() {
+        try {
+            courses = await courseApi.getCourses();
+        } catch (error) {
+            console.error('Error loading courses:', error);
+        }
+    }
+
+    async function addCourse() {
+        if (!newCourseName.trim()) return;
+
+        try {
+            const newCourse = await courseApi.createCourse(newCourseName.trim(), selectedPrereqs);
+            courses = [...courses, newCourse];
+            newCourseName = '';
+            selectedPrereqs = [];
+        } catch (error) {
+            console.error('Error adding course:', error);
+            alert('Failed to add course');
+        }
+    }
+
+    async function toggleComplete(course) {
+        const newStatus = course.completed ? 0 : 1;
+        try {
+            const updatedCourse = await courseApi.updateCourse(course.id, { completed: newStatus });
+            courses = courses.map(c =>
+                c.id === updatedCourse.id ? updatedCourse : c
+            );
+        } catch (error) {
+            console.error('Error toggling course completion:', error);
+            alert('Failed to update course status');
+        }
+    }
+
+    function startEdit(course) {
+        editingCourse = { ...course };
+        editingPrereqs = course.prerequisites.map(p => p.id);
+    }
+
+    function cancelEdit() {
+        editingCourse = null;
+        editingPrereqs = [];
+    }
+
+    async function saveEdit(course) {
+        if (!editingCourse.name.trim()) return;
+
+        try {
+            const updatedCourse = await courseApi.updateCourse(course.id, {
+                name: editingCourse.name.trim(),
+                prerequisiteIds: editingPrereqs
+            });
+            courses = courses.map(c =>
+                c.id === updatedCourse.id ? updatedCourse : c
+            );
+            cancelEdit();
+        } catch (error) {
+            console.error('Error saving course edit:', error);
+            alert('Failed to save course changes');
+        }
+    }
+
+    async function deleteCourse(course) {
+        if (!confirm(`Are you sure you want to delete "${course.name}"?`)) return;
+
+        try {
+            await courseApi.deleteCourse(course.id);
+            courses = courses
+                .filter(c => c.id !== course.id)
+                .map(c => ({
+                    ...c,
+                    prerequisites: c.prerequisites.filter(p => p.id !== course.id)
+                }));
+
+            selectedPrereqs = selectedPrereqs.filter(id => id !== course.id);
+            if (editingCourse) {
+                editingPrereqs = editingPrereqs.filter(id => id !== course.id);
+            }
+        } catch (error) {
+            console.error('Error deleting course:', error);
+            alert('Failed to delete course');
+        }
+    }
+
+    // Compute course levels based on prerequisites
+    // This creates a directed acyclic graph (DAG) of courses
+    // where each level contains courses that depend on previous levels
+    $: sortedCourses = (() => {
+        const levels = [];
+        const visited = new Set();
+        const courseMap = new Map(courses.map(c => [c.id, c]));
+
+        // Recursive function to determine course level based on prerequisites
+        function getLevel(course) {
+            if (visited.has(course.id)) return;
+            visited.add(course.id);
+
+            // Find the maximum level of all prerequisites
+            let maxPrereqLevel = -1;
+            for (const prereq of course.prerequisites) {
+                if (!visited.has(prereq.id)) {
+                    getLevel(courseMap.get(prereq.id));
+                }
+                const prereqLevel = levels.findIndex(level =>
+                    level.some(c => c.id === prereq.id)
+                );
+                maxPrereqLevel = Math.max(maxPrereqLevel, prereqLevel);
+            }
+
+            // Place course in next level after its highest prerequisite
+            const courseLevel = maxPrereqLevel + 1;
+            if (!levels[courseLevel]) {
+                levels[courseLevel] = [];
+            }
+            levels[courseLevel].push(course);
+        }
+
+        // Process all courses to build the level structure
+        for (const course of courses) {
+            if (!visited.has(course.id)) {
+                getLevel(course);
+            }
+        }
+
+        return levels;
+    })();
+</script>
+
 <section class="course-tracker">
     <header>
         <h2>Course Tracker</h2>
@@ -107,160 +250,6 @@
         <p>No courses added yet.</p>
     {/if}
 </section>
-
-<script>
-    import { onMount } from 'svelte';
-
-    let courses = [];
-    let newCourseName = '';
-    let selectedPrereqs = [];
-    let editingCourse = null;
-    let editingPrereqs = [];
-
-    onMount(async () => {
-        await loadCourses();
-    });
-
-    async function loadCourses() {
-        const response = await fetch('/api/courses');
-        if (response.ok) {
-            const data = await response.json();
-            courses = data;
-        }
-    }
-
-    async function addCourse() {
-        if (!newCourseName.trim()) return;
-
-        const response = await fetch('/api/courses', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: newCourseName.trim(),
-                prerequisiteIds: selectedPrereqs
-            })
-        });
-
-        if (response.ok) {
-            const newCourse = await response.json();
-            courses = [...courses, newCourse];
-            newCourseName = '';
-            selectedPrereqs = [];
-        }
-    }
-
-    async function toggleComplete(course) {
-        const newStatus = course.completed ? 0 : 1;
-        const response = await fetch(`/api/courses/${course.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ completed: newStatus })
-        });
-
-        if (response.ok) {
-            const updatedCourse = await response.json();
-            courses = courses.map(c =>
-                c.id === updatedCourse.id ? updatedCourse : c
-            );
-        }
-    }
-
-    function startEdit(course) {
-        editingCourse = { ...course };
-        editingPrereqs = course.prerequisites.map(p => p.id);
-    }
-
-    function cancelEdit() {
-        editingCourse = null;
-        editingPrereqs = [];
-    }
-
-    async function saveEdit(course) {
-        if (!editingCourse.name.trim()) return;
-
-        const response = await fetch(`/api/courses/${course.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: editingCourse.name.trim(),
-                prerequisiteIds: editingPrereqs
-            })
-        });
-
-        if (response.ok) {
-            const updatedCourse = await response.json();
-            courses = courses.map(c =>
-                c.id === updatedCourse.id ? updatedCourse : c
-            );
-            cancelEdit();
-        }
-    }
-
-    async function deleteCourse(course) {
-        if (!confirm(`Are you sure you want to delete "${course.name}"?`)) return;
-
-        const response = await fetch(`/api/courses/${course.id}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
-            courses = courses
-                .filter(c => c.id !== course.id)
-                .map(c => ({
-                    ...c,
-                    prerequisites: c.prerequisites.filter(p => p.id !== course.id)
-                }));
-
-            selectedPrereqs = selectedPrereqs.filter(id => id !== course.id);
-            if (editingCourse) {
-                editingPrereqs = editingPrereqs.filter(id => id !== course.id);
-            }
-        }
-    }
-
-    // Compute course levels based on prerequisites
-    // This creates a directed acyclic graph (DAG) of courses
-    // where each level contains courses that depend on previous levels
-    $: sortedCourses = (() => {
-        const levels = [];
-        const visited = new Set();
-        const courseMap = new Map(courses.map(c => [c.id, c]));
-
-        // Recursive function to determine course level based on prerequisites
-        function getLevel(course) {
-            if (visited.has(course.id)) return;
-            visited.add(course.id);
-
-            // Find the maximum level of all prerequisites
-            let maxPrereqLevel = -1;
-            for (const prereq of course.prerequisites) {
-                if (!visited.has(prereq.id)) {
-                    getLevel(courseMap.get(prereq.id));
-                }
-                const prereqLevel = levels.findIndex(level =>
-                    level.some(c => c.id === prereq.id)
-                );
-                maxPrereqLevel = Math.max(maxPrereqLevel, prereqLevel);
-            }
-
-            // Place course in next level after its highest prerequisite
-            const courseLevel = maxPrereqLevel + 1;
-            if (!levels[courseLevel]) {
-                levels[courseLevel] = [];
-            }
-            levels[courseLevel].push(course);
-        }
-
-        // Process all courses to build the level structure
-        for (const course of courses) {
-            if (!visited.has(course.id)) {
-                getLevel(course);
-            }
-        }
-
-        return levels;
-    })();
-</script>
 
 <style>
     .add-course {

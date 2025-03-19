@@ -3,6 +3,8 @@
     import { navigate } from 'svelte-routing';
     import Card from './Card.svelte';
     import { onMount } from 'svelte';
+    import * as calculatorApi from '../lib/api/calculators.js';
+    import { calculateFinalGrade } from '../lib/utils/gradeCalculations.js';
 
     let calculators = [];
 
@@ -11,9 +13,10 @@
     });
 
     async function loadCalculators() {
-        const response = await fetch('/api/calculators');
-        if (response.ok) {
-            calculators = await response.json();
+        try {
+            calculators = await calculatorApi.getCalculators();
+        } catch (error) {
+            console.error('Error loading calculators:', error);
         }
     }
 
@@ -21,15 +24,12 @@
         const name = prompt('Enter a name for your new calculator:');
         if (!name) return;
 
-        const response = await fetch('/api/calculators', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name })
-        });
-
-        if (response.ok) {
-            const newCalc = await response.json();
+        try {
+            const newCalc = await calculatorApi.createCalculator(name);
             navigate(`/calculator/${newCalc.id}`);
+        } catch (error) {
+            console.error('Error creating calculator:', error);
+            alert('Failed to create calculator');
         }
     }
 
@@ -38,12 +38,12 @@
             return;
         }
 
-        const response = await fetch(`/api/calculators/${id}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
+        try {
+            await calculatorApi.deleteCalculator(id);
             calculators = calculators.filter(calc => calc.id !== id);
+        } catch (error) {
+            console.error('Error deleting calculator:', error);
+            alert('Failed to delete calculator');
         }
     }
 
@@ -51,51 +51,17 @@
         const newName = prompt('Enter a new name for your calculator:', calculator.name);
         if (!newName || newName === calculator.name) return;
 
-        const response = await fetch(`/api/calculators/${calculator.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newName })
-        });
-
-        if (response.ok) {
+        try {
+            await calculatorApi.updateCalculator(calculator.id, { name: newName });
             calculators = calculators.map(calc =>
                 calc.id === calculator.id
                     ? { ...calc, name: newName }
                     : calc
             );
-        } else {
+        } catch (error) {
+            console.error('Error renaming calculator:', error);
             alert('Failed to rename calculator');
         }
-    }
-
-    // Calculate the weighted average grade for a set of assessments
-    function calculateFinalGrade(assessments) {
-        // Filter out assessments that don't have both grade and weight
-        const gradedAssessments = assessments.filter(assessment =>
-            assessment.grade !== null &&
-            assessment.grade !== undefined &&
-            assessment.grade !== '' &&
-            assessment.weight !== null &&
-            assessment.weight !== undefined &&
-            assessment.weight !== '');
-
-        if (gradedAssessments.length === 0) return 'N/A';
-
-        // Calculate total weight of all graded assessments
-        const totalWeight = gradedAssessments.reduce((sum, assessment) =>
-            sum + Number(assessment.weight), 0);
-
-        if (totalWeight === 0) return 'N/A';
-
-        // Calculate weighted sum of grades
-        const weightedSum = gradedAssessments.reduce((sum, assessment) => {
-            const weight = Number(assessment.weight);
-            const grade = Number(assessment.grade);
-            return sum + (grade * weight);
-        }, 0);
-
-        // Return final grade as percentage with 2 decimal places
-        return (weightedSum / totalWeight).toFixed(2);
     }
 </script>
 

@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 
 	// Import custom utilities
-	import { checkLoginStatus, userId } from './lib/stores.js';
+	import { updateSessionState, userId } from './lib/stores.js';
 
 	// Import routes
 	import Login from './routes/Login.svelte';
@@ -19,7 +19,14 @@
 
 	// Check login status when app mounts and set loading state
 	onMount(async () => {
-		await checkLoginStatus();
+		const path = window.location.pathname;
+		// Only check login status if we're not on public routes
+		if (path !== '/' && path !== '/login' && path !== '/register') {
+			await updateSessionState();
+		} else {
+			// For public routes, just clear any stale auth state
+			userId.set(null);
+		}
 		isLoading = false;
 	});
 

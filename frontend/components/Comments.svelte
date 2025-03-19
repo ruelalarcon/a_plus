@@ -1,3 +1,76 @@
+<script>
+	import { userId } from '../lib/stores.js';
+	import * as templateApi from '../lib/api/templates.js';
+
+	export let templateId;
+
+	let comments = [];
+	let newComment = '';
+	let editingComment = null;
+
+	async function loadComments() {
+		try {
+			comments = await templateApi.getTemplateComments(templateId);
+		} catch (error) {
+			console.error('Error loading comments:', error);
+		}
+	}
+
+	async function submitComment() {
+		if (!newComment.trim()) return;
+
+		try {
+			const comment = await templateApi.addTemplateComment(templateId, newComment);
+			comments = [comment, ...comments];
+			newComment = '';
+		} catch (error) {
+			console.error('Error submitting comment:', error);
+			alert('Failed to submit comment');
+		}
+	}
+
+	async function deleteComment(commentId) {
+		if (!confirm('Are you sure you want to delete this comment?')) return;
+
+		try {
+			await templateApi.deleteTemplateComment(templateId, commentId);
+			comments = comments.filter(c => c.id !== commentId);
+		} catch (error) {
+			console.error('Error deleting comment:', error);
+			alert('Failed to delete comment');
+		}
+	}
+
+	function startEdit(comment) {
+		editingComment = { ...comment };
+	}
+
+	function cancelEdit() {
+		editingComment = null;
+	}
+
+	async function saveEdit(comment) {
+		if (!editingComment.content.trim() || editingComment.content === comment.content) {
+			cancelEdit();
+			return;
+		}
+
+		try {
+			const updatedComment = await templateApi.updateTemplateComment(templateId, comment.id, editingComment.content);
+			comments = comments.map(c =>
+				c.id === comment.id ? updatedComment : c
+			);
+			editingComment = null;
+		} catch (error) {
+			console.error('Error saving comment:', error);
+			alert('Failed to save comment');
+		}
+	}
+
+	// Load comments when component mounts
+	loadComments();
+</script>
+
 <section>
 	<header>
 		<h3>Comments</h3>
@@ -52,89 +125,6 @@
 		<p>No comments yet. Be the first to comment!</p>
 	{/if}
 </section>
-
-<script>
-	import { userId } from '../lib/stores.js';
-
-	export let templateId;
-
-	let comments = [];
-	let newComment = '';
-	let editingComment = null;
-
-	async function loadComments() {
-		const response = await fetch(`/api/templates/${templateId}/comments`);
-		if (response.ok) {
-			comments = await response.json();
-		}
-	}
-
-	async function submitComment() {
-		if (!newComment.trim()) return;
-
-		try {
-			const response = await fetch(`/api/templates/${templateId}/comments`, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({ content: newComment })
-			});
-
-			if (!response.ok) throw new Error('Failed to submit comment');
-
-			const comment = await response.json();
-			comments = [comment, ...comments];
-			newComment = '';
-		} catch (error) {
-			console.error('Error submitting comment:', error);
-		}
-	}
-
-	async function deleteComment(commentId) {
-		if (!confirm('Are you sure you want to delete this comment?')) return;
-
-		const response = await fetch(`/api/templates/${templateId}/comments/${commentId}`, {
-			method: 'DELETE'
-		});
-
-		if (response.ok) {
-			comments = comments.filter(c => c.id !== commentId);
-		}
-	}
-
-	function startEdit(comment) {
-		editingComment = { ...comment };
-	}
-
-	function cancelEdit() {
-		editingComment = null;
-	}
-
-	async function saveEdit(comment) {
-		if (!editingComment.content.trim() || editingComment.content === comment.content) {
-			cancelEdit();
-			return;
-		}
-
-		const response = await fetch(`/api/templates/${templateId}/comments/${comment.id}`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ content: editingComment.content })
-		});
-
-		if (response.ok) {
-			const updatedComment = await response.json();
-			comments = comments.map(c =>
-				c.id === comment.id ? updatedComment : c
-			);
-			editingComment = null;
-		}
-	}
-
-	// Load comments when component mounts
-	loadComments();
-</script>
 
 <style>
 	textarea {
