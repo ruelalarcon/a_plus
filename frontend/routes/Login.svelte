@@ -1,18 +1,15 @@
 <script>
     import { navigate, Link } from 'svelte-routing';
     import { checkLoginStatus } from '../lib/stores.js';
+    import * as authApi from '../lib/api/auth.js';
 
     async function handleSubmit(e) {
         e.preventDefault();
         const formData = new FormData(e.target);
-        const response = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                username: formData.get('username'),
-                password: formData.get('password'),
-            }),
-        });
+        const response = await authApi.login(
+            formData.get('username'),
+            formData.get('password')
+        );
 
         if (response.ok) {
             await checkLoginStatus();

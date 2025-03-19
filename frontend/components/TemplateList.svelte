@@ -3,6 +3,7 @@
     import VoteButtons from './VoteButtons.svelte';
     import Comments from './Comments.svelte';
     import { onMount } from 'svelte';
+    import * as templateApi from '../lib/api/templates.js';
 
     let templates = [];
     let activeComments = null;
@@ -12,9 +13,10 @@
     });
 
     async function loadTemplates() {
-        const response = await fetch('/api/user/templates');
-        if (response.ok) {
-            templates = await response.json();
+        try {
+            templates = await templateApi.getUserTemplates();
+        } catch (error) {
+            console.error('Error loading templates:', error);
         }
     }
 
@@ -23,37 +25,17 @@
             return;
         }
 
-        const response = await fetch(`/api/templates/${id}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
+        try {
+            await templateApi.deleteTemplate(id);
             templates = templates.filter(t => t.id !== id);
+        } catch (error) {
+            console.error('Error deleting template:', error);
+            alert('Failed to delete template');
         }
     }
 
     function toggleComments(templateId) {
         activeComments = activeComments === templateId ? null : templateId;
-    }
-
-    async function handleVote(template, vote) {
-        const method = template.user_vote === vote ? 'DELETE' : 'POST';
-        const response = await fetch(`/api/templates/${template.id}/vote`, {
-            method,
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: method === 'POST' ? JSON.stringify({ vote }) : undefined
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            templates = templates.map(t =>
-                t.id === template.id
-                    ? { ...t, vote_count: data.vote_count, user_vote: method === 'POST' ? vote : 0 }
-                    : t
-            );
-        }
     }
 
     function copyShareLink(templateId) {
@@ -85,7 +67,7 @@
                                 voteCount={template.vote_count}
                                 userVote={template.user_vote}
                                 creatorId={template.user_id}
-                                onVote={(vote) => handleVote(template, vote)}
+                                templateId={template.id}
                             />
                             <div class="action-buttons">
                                 <button on:click={() => copyShareLink(template.id)}>

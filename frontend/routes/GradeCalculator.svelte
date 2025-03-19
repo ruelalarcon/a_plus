@@ -4,6 +4,8 @@
     import Comments from '../components/Comments.svelte';
     import Card from '../components/Card.svelte';
     import VoteButtons from '../components/VoteButtons.svelte';
+    import * as calculatorApi from '../lib/api/calculators.js';
+    import { calculateFinalGrade } from '../lib/utils/gradeCalculations.js';
 
     export let id; // Calculator ID from route params
 
@@ -19,11 +21,12 @@
     });
 
     async function loadCalculator() {
-        const response = await fetch(`/api/calculators/${id}`);
-        if (response.ok) {
-            const data = await response.json();
+        try {
+            const data = await calculatorApi.getCalculator(id);
             calculator = data.calculator;
             assessments = data.assessments;
+        } catch (error) {
+            console.error('Error loading calculator:', error);
         }
     }
 
@@ -35,40 +38,13 @@
         assessments = assessments.filter((_, i) => i !== index);
     }
 
-    function calculateFinalGrade(assessments) {
-        const gradedAssessments = assessments.filter(assessment =>
-            assessment.grade !== null &&
-            assessment.grade !== undefined &&
-            assessment.grade !== '' &&
-            assessment.weight !== null &&
-            assessment.weight !== undefined &&
-            assessment.weight !== '');
-
-        if (gradedAssessments.length === 0) return 'N/A';
-
-        const totalWeight = gradedAssessments.reduce((sum, assessment) =>
-            sum + Number(assessment.weight), 0);
-
-        if (totalWeight === 0) return 'N/A';
-
-        const weightedSum = gradedAssessments.reduce((sum, assessment) => {
-            const weight = Number(assessment.weight);
-            const grade = Number(assessment.grade);
-            return sum + (grade * weight);
-        }, 0);
-
-        return (weightedSum / totalWeight).toFixed(2);
-    }
-
     async function saveCalculator() {
-        const response = await fetch(`/api/calculators/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ assessments })
-        });
-
-        if (response.ok) {
+        try {
+            await calculatorApi.updateCalculator(id, { assessments });
             alert('Changes saved successfully!');
+        } catch (error) {
+            console.error('Error saving calculator:', error);
+            alert('Failed to save changes');
         }
     }
 
@@ -77,12 +53,12 @@
             return;
         }
 
-        const response = await fetch(`/api/calculators/${id}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
+        try {
+            await calculatorApi.deleteCalculator(id);
             navigate('/', { replace: true });
+        } catch (error) {
+            console.error('Error deleting calculator:', error);
+            alert('Failed to delete calculator');
         }
     }
 
@@ -112,15 +88,11 @@
             assessments: assessments.map(({ name, weight }) => ({ name, weight }))
         };
 
-        const response = await fetch('/api/templates', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(templateData)
-        });
-
-        if (response.ok) {
+        try {
+            await calculatorApi.publishTemplate(id, templateData);
             alert('Template published successfully!');
-        } else {
+        } catch (error) {
+            console.error('Error publishing template:', error);
             alert('Failed to publish template');
         }
     }
@@ -129,46 +101,19 @@
         const newName = prompt('Enter a new name for your calculator:', calculator.name);
         if (!newName || newName === calculator.name) return;
 
-        const response = await fetch(`/api/calculators/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newName })
-        });
-
-        if (response.ok) {
+        try {
+            await calculatorApi.updateCalculator(id, { name: newName });
             calculator.name = newName;
             calculator = calculator; // Trigger reactivity
-        } else {
+        } catch (error) {
+            console.error('Error renaming calculator:', error);
             alert('Failed to rename calculator');
         }
     }
 
-    async function handleVote(vote) {
-        if (loading) return;
-        loading = true;
-
-        try {
-            const method = calculator.user_vote === vote ? 'DELETE' : 'POST';
-            const response = await fetch(`/api/templates/${calculator.template_id}/vote`, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: method === 'POST' ? JSON.stringify({ vote }) : undefined
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to vote');
-            }
-
-            const data = await response.json();
-            calculator.vote_count = data.vote_count;
-            calculator.user_vote = method === 'POST' ? vote : 0;
-        } catch (error) {
-            console.error('Error voting:', error);
-        } finally {
-            loading = false;
-        }
+    function handleVoteUpdate(voteCount, userVote) {
+        calculator.vote_count = voteCount;
+        calculator.user_vote = userVote;
     }
 </script>
 
@@ -243,7 +188,7 @@
                         voteCount={calculator.vote_count}
                         userVote={calculator.user_vote}
                         creatorId={calculator.template_user_id}
-                        onVote={handleVote}
+                        templateId={calculator.template_id}
                     />
                     <button on:click={() => showComments = !showComments}>
                         {showComments ? 'Hide' : 'Show'} Comments

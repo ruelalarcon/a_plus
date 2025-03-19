@@ -168,7 +168,7 @@ app.put('/api/calculators/:id', (req, res) => {
 	}
 
 	if (req.body.name !== undefined || req.body.min_pass_grade !== undefined) {
-		
+
 		const updates = [];
 		const params = [];
 
@@ -183,8 +183,8 @@ app.put('/api/calculators/:id', (req, res) => {
 		params.push(calculator.id);
 
 		db.prepare(`
-			UPDATE calculators 
-			SET ${updates.join(', ')} 
+			UPDATE calculators
+			SET ${updates.join(', ')}
 			WHERE id = ?
 		`).run(...params);
 	} else if (req.body.assessments) {
