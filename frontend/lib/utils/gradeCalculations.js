@@ -10,14 +10,14 @@
  *   weight: number|string|null
  * }>} assessments - Array of assessment objects containing grades and weights
  * @returns {string} The calculated grade as a percentage with 2 decimal places, or 'N/A' if no valid assessments
- * 
+ *
  * @example
  * // Returns "85.50"
  * calculateFinalGrade([
  *   { grade: "90", weight: "0.6" },
  *   { grade: "78", weight: "0.4" }
  * ]);
- * 
+ *
  * // Returns "N/A"
  * calculateFinalGrade([
  *   { grade: null, weight: "0.5" },
