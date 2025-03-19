@@ -8,6 +8,7 @@
  * @returns {Promise<Array<{
  *   id: number,
  *   name: string,
+ *   min_desired_grade: number|null,
  *   assessments: Array<{
  *     id: number,
  *     name: string,
@@ -29,6 +30,7 @@ export async function getCalculators() {
  * @returns {Promise<{
  *   id: number,
  *   name: string,
+ *   min_desired_grade: number|null,
  *   template_id: number|null,
  *   assessments: Array<{
  *     id: number,
@@ -48,17 +50,19 @@ export async function getCalculator(id) {
 /**
  * Create a new calculator
  * @param {string} name - Calculator name
+ * @param {number|null} [min_desired_grade] - Optional minimum desired grade
  * @returns {Promise<{
  *   id: number,
- *   name: string
+ *   name: string,
+ *   min_desired_grade: number|null
  * }>} Newly created calculator details
  * @throws {Error} If the API request fails
  */
-export async function createCalculator(name) {
+export async function createCalculator(name, min_desired_grade = null) {
     const response = await fetch('/api/calculators', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, min_desired_grade })
     });
     if (!response.ok) throw new Error('Failed to create calculator');
     return response.json();
@@ -69,6 +73,7 @@ export async function createCalculator(name) {
  * @param {number} id - Calculator ID
  * @param {Object} data - Calculator data to update
  * @param {string} [data.name] - New calculator name
+ * @param {number|null} [data.min_desired_grade] - New minimum desired grade
  * @param {Array<{
  *   name: string,
  *   weight: number,
