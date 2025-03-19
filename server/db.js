@@ -27,7 +27,6 @@ db.exec(`
 		user_id INTEGER NOT NULL,       -- Owner of the calculator
 		name TEXT NOT NULL,             -- Display name
 		template_id INTEGER,            -- Optional reference to template it was created from
-		min_pass_grade DECIMAL(5,2),    -- Minimum grade needed to pass
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (user_id) REFERENCES users (id),
 		FOREIGN KEY (template_id) REFERENCES calculator_templates (id)
@@ -55,7 +54,6 @@ db.exec(`
 		term TEXT NOT NULL,              -- Academic term (e.g. Fall, Spring)
 		year INTEGER NOT NULL,           -- Academic year
 		institution TEXT NOT NULL,       -- School/university name
-		min_pass_grade DECIMAL(5,2),     -- Minimum grade needed to pass
 		vote_count INTEGER DEFAULT 1,    -- Net votes (starts at 1 for creator's vote)
 		deleted BOOLEAN DEFAULT 0,       -- Soft delete flag
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
