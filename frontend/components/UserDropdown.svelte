@@ -14,9 +14,9 @@
   </button>
   {#if open}
     <ul class="menu">
-      <li>My Profile</li>
-      <li>Settings</li>
-      <li><a href={logout}>Logout</a></li>
+      <li>><button>My Profile</button></li>
+      <li><button>Settings</button></li>
+      <li><button on:click={logout}>Logout</button></li>
     </ul>
   {/if}
 </div>
@@ -47,14 +47,17 @@
     min-width: 120px;
   }
 
-  .menu li {
-    text-decoration: none;
-    padding: 8px;
-    
+  .menu button {
+    width: 100%;
+    padding: 10px;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
   }
 
-  .menu li:hover {
-    background: rgb(187, 185, 185); 
+  .menu button:hover {
+    background: #e0e0e0; /* Grey hover effect */
   }
   
 </style>

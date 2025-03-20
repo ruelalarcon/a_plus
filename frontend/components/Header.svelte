@@ -1,6 +1,5 @@
 <script lang="ts">
     import { username } from '../lib/stores.js';
-    import { Input } from "$lib/components/ui/input";
     import UserDropdown from "./UserDropdown.svelte";
 </script>
 
@@ -9,7 +8,6 @@
         CanvasButBetter
     </a>
     
-    <Input type="search" placeholder="Search Templates..." class="max-w-xs" />
 
     <div class="user-info">
         <p>Welcome, <strong>{$username}</strong></p>
