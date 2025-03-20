@@ -4,6 +4,7 @@
     import Comments from '../components/Comments.svelte';
     import Card from '../components/Card.svelte';
     import VoteButtons from '../components/VoteButtons.svelte';
+    import * as templateApi from '../lib/api/templates.js';
 
     let searchQuery = '';
     let term = '';
@@ -17,21 +18,20 @@
     let activeComments = null;
 
     const debouncedSearch = debounce(async () => {
-        const params = new URLSearchParams({
-            query: searchQuery,
-            term,
-            year: year || '',
-            institution,
-            page: currentPage,
-            limit: ITEMS_PER_PAGE
-        });
-
-        const response = await fetch(`/api/templates/search?${params}`);
-        if (response.ok) {
-            const data = await response.json();
+        try {
+            const data = await templateApi.searchTemplates(
+                searchQuery,
+                term,
+                year,
+                institution,
+                currentPage,
+                ITEMS_PER_PAGE
+            );
             templates = data.templates;
             totalResults = data.total;
             totalPages = Math.ceil(totalResults / ITEMS_PER_PAGE);
+        } catch (error) {
+            console.error('Error searching templates:', error);
         }
     }, 300);
 
@@ -45,46 +45,13 @@
         debouncedSearch();
     }
 
-    async function handleVote(template, vote) {
-        if (template.user_vote === vote) {
-            const response = await fetch(`/api/templates/${template.id}/vote`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                const { vote_count } = await response.json();
-                templates = templates.map(t =>
-                    t.id === template.id
-                        ? { ...t, vote_count, user_vote: 0 }
-                        : t
-                );
-            }
-        } else {
-            const response = await fetch(`/api/templates/${template.id}/vote`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ vote })
-            });
-
-            if (response.ok) {
-                const { vote_count, user_vote } = await response.json();
-                templates = templates.map(t =>
-                    t.id === template.id
-                        ? { ...t, vote_count, user_vote }
-                        : t
-                );
-            }
-        }
-    }
-
     async function useTemplate(templateId) {
-        const response = await fetch(`/api/templates/${templateId}/use`, {
-            method: 'POST'
-        });
-
-        if (response.ok) {
-            const { id } = await response.json();
-            navigate(`/calculator/${id}`);
+        try {
+            const { id: calculatorId } = await templateApi.useTemplate(templateId);
+            navigate(`/calculator/${calculatorId}`);
+        } catch (error) {
+            console.error('Error using template:', error);
+            alert('Failed to use template');
         }
     }
 
@@ -167,7 +134,7 @@
                                     voteCount={template.vote_count}
                                     userVote={template.user_vote}
                                     creatorId={template.user_id}
-                                    onVote={(vote) => handleVote(template, vote)}
+                                    templateId={template.id}
                                 />
                                 <div class="action-buttons">
                                     <button on:click={() => useTemplate(template.id)}>

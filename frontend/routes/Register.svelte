@@ -1,5 +1,6 @@
 <script>
     import { navigate, Link } from 'svelte-routing';
+    import * as authApi from '../lib/api/auth.js';
 
     let password = '';
     let confirmPassword = '';
@@ -23,14 +24,10 @@
         if (!validatePasswords()) return;
 
         const formData = new FormData(e.target);
-        const response = await fetch('/api/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                username: formData.get('username'),
-                password: password,
-            }),
-        });
+        const response = await authApi.register(
+            formData.get('username'),
+            password
+        );
 
         if (response.ok) {
             navigate('/login', { replace: true });

@@ -1,29 +1,61 @@
+/**
+ * @module stores
+ * Authentication state management module using Svelte stores
+ */
+
 import { writable } from 'svelte/store';
 import { navigate } from 'svelte-routing';
+import * as authApi from './api/auth.js';
 
+/**
+ * Store containing the current user's ID
+ * @type {import('svelte/store').Writable<number|null>}
+ */
 export const userId = writable(null);
+
+/**
+ * Store containing the current user's username
+ * @type {import('svelte/store').Writable<string|null>}
+ */
 export const username = writable(null);
 
-export async function checkLoginStatus() {
+/**
+ * Checks the current user's login status by making an API call
+ * Updates userId and username stores based on the response
+ * @async
+ * @returns {Promise<boolean>} Returns true if user is logged in, false otherwise
+ */
+export async function updateSessionState() {
 	try {
-		const response = await fetch('/api/user');
+		const response = await authApi.getUser();
 		if (response.ok) {
 			const data = await response.json();
 			userId.set(data.userId);
 			username.set(data.username);
+			return true;
 		} else {
+			// Clear the stores but don't throw an error for 401
 			userId.set(null);
 			username.set(null);
+			return false;
 		}
 	} catch (error) {
+		// Handle network errors or other issues
 		console.error('Error checking login status:', error);
 		userId.set(null);
 		username.set(null);
+		return false;
 	}
 }
 
+/**
+ * Logs out the current user and clears authentication stores
+ * Redirects to home page after successful logout
+ * @async
+ * @returns {Promise<void>}
+ */
 export async function logout() {
-	const response = await fetch('/api/logout', { method: 'POST' });
+	const response = await authApi.logout();
 	if (response.ok) {
 		userId.set(null);
 		username.set(null);

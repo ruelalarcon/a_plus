@@ -94,7 +94,7 @@ Users and Authentication:
 - users: id, username, password (hashed)
 
 Grade Calculators:
-- calculators: id, user_id, name, template_id, created_at
+- calculators: id, user_id, name, template_id, min_desired_grade (decimal), created_at
 - assessments: id, calculator_id, name, weight, grade
 
 Templates:
@@ -126,15 +126,16 @@ Authentication:
 Calculators:
 - GET /api/calculators
   - Returns array of user's calculators with assessments
-  - Each calculator includes: id, name, assessments[]
+  - Each calculator includes: id, name, min_desired_grade, assessments[]
 - POST /api/calculators
-  - Body: { name }
-  - Returns: { id, name }
+  - Body: { name, min_desired_grade? }
+  - min_desired_grade is optional decimal value
+  - Returns: { id, name, min_desired_grade }
 - GET /api/calculators/:id
   - Returns calculator with assessments and template info if based on template
 - PUT /api/calculators/:id
-  - Body: { name } or { assessments: [{name, weight, grade}] }
-  - Can update name or assessments separately
+  - Body: { name? } or { min_desired_grade? } or { assessments: [{name, weight, grade}] }
+  - Can update name, min_desired_grade, or assessments separately
 - DELETE /api/calculators/:id
   - Deletes calculator and its assessments
 
@@ -252,7 +253,7 @@ Courses:
 The app uses Svelte stores for global state:
 - userId: Current user's ID or null
 - username: Current username or null
-- checkLoginStatus(): Async function to verify session
+- updateSessionState(): Async function to verify session
 
 ## Error Handling
 

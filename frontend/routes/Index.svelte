@@ -1,6 +1,5 @@
 <script>
     import { Link } from 'svelte-routing';
-    import { userId, username, logout } from '../lib/stores.js';
 </script>
 
 <main class="container">
@@ -8,23 +7,13 @@
         <h1>Welcome to Grade Tracker</h1>
     </header>
     <section id="userSection">
-        {#if $userId}
-            <article id="loggedInContent">
-                <p>Welcome back, <strong>{$username}</strong>!</p>
-                <nav class="actions">
-                    <Link to="/dashboard" class="button">Go to Dashboard</Link>
-                    <button on:click={logout}>Logout</button>
-                </nav>
-            </article>
-        {:else}
-            <article id="loggedOutContent">
-                <p>Track your grades, manage courses, and share templates with other students.</p>
-                <nav class="actions">
-                    <Link to="/login" class="button">Login</Link>
-                    <Link to="/register" class="button">Register</Link>
-                </nav>
-            </article>
-        {/if}
+        <article id="loggedOutContent">
+            <p>Track your grades, manage courses, and share templates with other students.</p>
+            <nav class="actions">
+                <Link to="/login" class="button">Login</Link>
+                <Link to="/register" class="button">Register</Link>
+            </nav>
+        </article>
     </section>
 </main>
 
