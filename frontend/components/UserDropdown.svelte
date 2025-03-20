@@ -48,6 +48,7 @@
   }
 
   .menu li {
+    text-decoration: none;
     padding: 8px;
     
   }
