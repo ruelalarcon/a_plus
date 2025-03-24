@@ -19,14 +19,8 @@
 
 	// Check login status when app mounts and set loading state
 	onMount(async () => {
-		const path = window.location.pathname;
-		// Only check login status if we're not on public routes
-		if (path !== '/' && path !== '/login' && path !== '/register') {
-			await updateSessionState();
-		} else {
-			// For public routes, just clear any stale auth state
-			userId.set(null);
-		}
+		// Always check login status on mount, regardless of route
+		await updateSessionState();
 		isLoading = false;
 	});
 

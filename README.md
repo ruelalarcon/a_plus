@@ -9,41 +9,53 @@ A web application for students to track course grades, share grade calculation t
    npm install
    ```
 
-2. Create .env file with:
+2. Create a `.env` file with:
    ```
-   SESSION_SECRET=your_secret_here
+   NODE_ENV=development # options: production, development, test
    PORT=3000
+   SESSION_SECRET=your-secret-key-here
    ```
    An example .env file is given (env.example)
 
-3. Initialize database:
-   ```bash
-   # The database file will be created automatically at server/database.sqlite
-   # Tables are created on first server start
-   ```
-
-4. Start development server:
+3. Start development server:
    ```bash
    npm run dev
    ```
 
-5. Access app at http://localhost:3000
+4. Access the app at http://localhost:3000
 
-## Project Structure
+## Testing
+
+The application includes a comprehensive test suite using Jest. The tests operate a separate test database to avoid affecting production data.
+
+### Running Tests
+
+1. Create a `.env.test` file (if does not already exist) with:
+   ```
+   NODE_ENV=test
+   SESSION_SECRET=test_secret_key
+   PORT=3001
+   ```
+
+2. Run the tests:
+   ```bash
+   npm test
+   ```
+
+### Test Structure
 
 ```
-frontend/
-  components/     # Reusable UI components
-  routes/         # Page components
-  lib/            # Utilities and stores
-  App.svelte      # Main app component
-  main.js         # Entry point
 server/
-  server.js       # Express server
-  db.js           # Database setup
-  database.sqlite # SQLite database
-  package.json    # Node dependencies
-  vite.config.js  # Vite configuration
+  __tests__/              # Test files
+    auth.test.js          # Authentication endpoint tests
+    calculators.test.js   # Calculator endpoint tests
+    courses.test.js       # Course endpoint tests
+    templates.test.js     # Template endpoint tests
+    test-helpers.js       # Helper functions for tests
+    setup.js              # Setup for individual test files
+  db.config.js            # Database configuration for different environments
+jest.config.js            # Jest configuration
+jest.setup.js             # Global test setup and teardown
 ```
 
 ## Core Features
@@ -187,7 +199,7 @@ Courses:
   - Can update fields independently
   - Returns updated course with prerequisites
 
-## Key Behaviors
+## Specific Behaviors
 
 ### Template Voting
 - Users can't vote on their own templates
@@ -208,81 +220,3 @@ Courses:
 - A course appears after all its prerequisites
 - Prevents circular dependencies
 - Prerequisites must be completed before dependent courses
-
-## Frontend Component Details
-
-### Card.svelte
-- Reusable card layout component
-- Props:
-  - title: string
-  - details: string[]
-  - showActions: boolean
-  - extraContent: any
-- Slots:
-  - actions: buttons/links
-  - extra: expandable content
-
-### VoteButtons.svelte
-- Handles template voting UI
-- Props:
-  - voteCount: number
-  - userVote: -1 | 0 | 1
-  - creatorId: number
-  - onVote: (vote: number) => void
-- Disables and visually indicates when user is creator
-
-### Comments.svelte
-- Manages template comments
-- Features:
-  - Add/edit/delete comments
-  - Shows username and timestamp
-  - Real-time updates
-  - Edit/delete only for comment author
-
-### CourseTracker.svelte
-- Visualizes course prerequisites
-- Features:
-  - Add/edit/delete courses
-  - Set prerequisites
-  - Mark completion status
-  - Automatic level calculation
-  - Prevents circular dependencies
-
-## State Management
-
-The app uses Svelte stores for global state:
-- userId: Current user's ID or null
-- username: Current username or null
-- updateSessionState(): Async function to verify session
-
-## Error Handling
-
-Backend:
-- Authentication errors: 401 Unauthorized
-- Permission errors: 403 Forbidden
-- Not found: 404 Not Found
-- Validation errors: 400 Bad Request
-- Database errors: 500 Internal Server Error
-
-Frontend:
-- Failed requests show alert messages
-- Form validation prevents invalid submissions
-- Loading states prevent premature interactions
-- Error boundaries catch rendering errors
-
-## Database Transactions
-
-The app uses SQLite transactions for operations that require multiple updates:
-- Template creation (template + vote + assessments)
-- Template voting (vote record + vote count)
-- Calculator deletion (assessments + calculator)
-- Course updates (course + prerequisites)
-
-## Security Considerations
-
-- Passwords are hashed with bcrypt
-- Session cookies for authentication
-- SQL injection prevention via prepared statements
-- CSRF protection via same-origin policy
-- Input validation on all endpoints
-- Resource ownership verification
