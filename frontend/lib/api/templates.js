@@ -143,7 +143,7 @@ export async function deleteTemplateComment(templateId, commentId) {
  * @throws {Error} If the API request fails
  */
 export async function getUserTemplates() {
-    const response = await fetch('/api/user/templates');
+    const response = await fetch('/api/templates/user/templates');
     if (!response.ok) throw new Error('Failed to fetch user templates');
     return response.json();
 }

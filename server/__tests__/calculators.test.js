@@ -125,6 +125,41 @@ describe('Calculators API', () => {
             expect(getResponse.body.assessments[0]).toHaveProperty('name', 'Midterm');
             expect(getResponse.body.assessments[0]).toHaveProperty('grade', 92);
         });
+
+        it('should update both min_desired_grade and assessments in a single request', async () => {
+            const updateData = {
+                min_desired_grade: 85,
+                assessments: [
+                    { name: 'Quiz', weight: 20, grade: 90 },
+                    { name: 'Midterm', weight: 30, grade: 88 },
+                    { name: 'Final', weight: 50, grade: null }
+                ]
+            };
+
+            const response = await request
+                .put(`/api/calculators/${calculator.id}`)
+                .set('Cookie', authCookies)
+                .send(updateData);
+
+            expect(response.status).toBe(200);
+            expect(response.body).toHaveProperty('success', true);
+
+            // Verify both updates
+            const getResponse = await request
+                .get(`/api/calculators/${calculator.id}`)
+                .set('Cookie', authCookies);
+
+            // Verify min_desired_grade was updated
+            expect(getResponse.body.calculator).toHaveProperty('min_desired_grade', updateData.min_desired_grade);
+
+            // Verify assessments were updated
+            expect(getResponse.body.assessments.length).toBe(3);
+            expect(getResponse.body.assessments[0]).toHaveProperty('name', 'Quiz');
+            expect(getResponse.body.assessments[0]).toHaveProperty('grade', 90);
+            expect(getResponse.body.assessments[1]).toHaveProperty('name', 'Midterm');
+            expect(getResponse.body.assessments[2]).toHaveProperty('name', 'Final');
+            expect(getResponse.body.assessments[2]).toHaveProperty('grade', null);
+        });
     });
 
     describe('DELETE /api/calculators/:id', () => {
