@@ -199,6 +199,27 @@ Courses:
   - Can update fields independently
   - Returns updated course with prerequisites
 
+## External Modules
+
+This project relies on several external dependencies to provide core functionality:
+
+### Production Dependencies
+- **bcrypt**: Used for password hashing and verification to securely store user credentials
+- **better-sqlite3**: SQLite database driver providing a simple, fast interface for database operations
+- **dotenv**: Loads environment variables from .env files to manage configuration
+- **express**: Web application framework for building the API and server-side routes
+- **express-session**: Session middleware for Express to manage user authentication state
+- **lodash**: Utility library providing helper functions for common programming tasks
+- **svelte-routing**: Client-side routing library for Svelte applications
+
+### Development Dependencies
+- **@babel/preset-env**: Babel preset for transpiling modern JavaScript to compatible versions
+- **@sveltejs/vite-plugin-svelte**: Vite plugin for Svelte components integration
+- **jest**: Testing framework for writing and running unit and integration tests
+- **supertest**: HTTP assertion library for testing API endpoints
+- **svelte**: Component framework for building the user interface
+- **vite**: Build tool and development server offering fast development experience
+
 ## Specific Behaviors
 
 ### Template Voting
