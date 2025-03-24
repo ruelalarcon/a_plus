@@ -1,5 +1,8 @@
 export default {
-    transform: {},
+    transform: {
+        '^.+\\.js$': 'babel-jest'
+    },
+    moduleFileExtensions: ['js', 'json', 'node'],
     testEnvironment: 'node',
     testMatch: ['**/__tests__/**/*.js', '**/?(*.)+(spec|test).js'],
     setupFilesAfterEnv: ['./jest.setup.js'],
@@ -9,5 +12,8 @@ export default {
     resetMocks: true,
     restoreMocks: true,
     testTimeout: 10000,
-    maxWorkers: 1
+    maxWorkers: 1,
+    moduleNameMapper: {
+        '^frontend/(.*)$': '<rootDir>/frontend/$1'
+    }
 };

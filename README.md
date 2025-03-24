@@ -46,17 +46,23 @@ The application includes a comprehensive test suite using Jest. The tests operat
 
 ```
 server/
-  __tests__/              # Test files
+  __tests__/              # Backend test files
     auth.test.js          # Authentication endpoint tests
     calculators.test.js   # Calculator endpoint tests
     courses.test.js       # Course endpoint tests
     templates.test.js     # Template endpoint tests
     test-helpers.js       # Helper functions for tests
     setup.js              # Setup for individual test files
-  db.config.js            # Database configuration for different environments
+frontend/
+  __tests__/              # Frontend test files
+    utils/
+      gradeCalculations.test.js  # Tests for grade calculation utilities
 jest.config.js            # Jest configuration
 jest.setup.js             # Global test setup and teardown
+babel.config.js           # Babel configuration for testing
 ```
+
+The test suite covers both backend API endpoints and frontend utility functions:
 
 ## Core Features
 
