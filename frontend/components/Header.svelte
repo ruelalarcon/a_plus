@@ -7,8 +7,6 @@
     <a class ="logo" href="/">
         CanvasButBetter
     </a>
-    
-
     <div class="user-info">
         <p>Welcome, <strong>{$username}</strong></p>
         <nav>
@@ -25,7 +23,7 @@
         position: fixed;
         justify-content: space-between;
         align-items: center;
-        background-color: rgb(211, 211, 211);
+        background-color: #000000;
         width: 100%;
         margin: 0 auto;
         padding: 10px;
@@ -33,7 +31,7 @@
 
     .logo {
         display: flex;
-        color: rgb(48, 48, 48);
+        color: #839788;
         text-decoration: none;
         list-style: none;
         font-size: 1.25rem;
@@ -41,7 +39,7 @@
 
     .logo:hover {
         display: flex;
-        color: black;
+        color: #96d5a6;
         text-decoration: none;
         list-style: none;
         font-size: 1.25rem;
@@ -50,6 +48,7 @@
     .user-info {
         display: flex;
         align-items: center;
+        color: #839788;
         padding-right: 20px;
         gap: 10px;
     }

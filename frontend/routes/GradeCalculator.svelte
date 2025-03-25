@@ -4,6 +4,8 @@
     import Comments from '../components/Comments.svelte';
     import Card from '../components/Card.svelte';
     import VoteButtons from '../components/VoteButtons.svelte';
+    import Header from "../components/Header.svelte";
+    import Sidebar from "../components/Sidebar.svelte";
     import * as calculatorApi from '../lib/api/calculators.js';
     import { calculateFinalGrade, calculateRequiredGrade } from '../lib/utils/gradeCalculations.js';
 
@@ -113,7 +115,12 @@
             alert('Failed to rename calculator');
         }
     }
+
+
 </script>
+
+<Sidebar/>
+<Header/>
 
 <main class="container">
     <header class="header">
@@ -124,7 +131,6 @@
         <nav class="header-actions">
             <button class="publish-btn" on:click={publishTemplate}>Publish Template</button>
             <button class="delete-btn" on:click={deleteCalculator}>Delete Calculator</button>
-            <Link to="/">Back to Dashboard</Link>
         </nav>
     </header>
 
@@ -217,9 +223,10 @@
 
 <style>
     .container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 20px;
+        max-width: 100%;
+        padding-left: 220px;
+        padding-top: 70px;
+        padding-right: 20px;
     }
 
     .header {

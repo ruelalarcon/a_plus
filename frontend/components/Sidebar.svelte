@@ -19,7 +19,7 @@
         top: 0;
         left: 0;
         padding-top: 70px;
-        background-color: rgb(211, 211, 211);
+        background-color: #839788;
         align-items: start;
     }
 

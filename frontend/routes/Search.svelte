@@ -4,6 +4,8 @@
     import Comments from '../components/Comments.svelte';
     import Card from '../components/Card.svelte';
     import VoteButtons from '../components/VoteButtons.svelte';
+    import Header from "../components/Header.svelte";
+    import Sidebar from "../components/Sidebar.svelte";
     import * as templateApi from '../lib/api/templates.js';
 
     let searchQuery = '';
@@ -62,6 +64,9 @@
     // Initial search on mount
     debouncedSearch();
 </script>
+
+<Sidebar/>
+<Header/>
 
 <main class="container">
     <header class="page-header">
@@ -176,7 +181,8 @@
     .container {
         max-width: 1200px;
         margin: 0 auto;
-        padding: 20px;
+        padding-left: 220px;
+        padding-top: 70px;
     }
 
     .page-header {
