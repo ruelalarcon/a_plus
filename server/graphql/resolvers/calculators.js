@@ -9,6 +9,10 @@
 
 import db from "../../db.js";
 import { GraphQLError } from "graphql";
+import { createLogger } from "../../utils/logger.js";
+
+// Create a context-specific logger
+const logger = createLogger("calculator-resolver");
 
 /**
  * Calculator-related GraphQL queries
@@ -30,7 +34,7 @@ export const calculatorQueries = {
         extensions: { code: "UNAUTHENTICATED" },
       });
     }
-    console.log(
+    logger.debug(
       `Fetching calculator with ID: ${id} for user: ${context.session.userId}`
     );
 
@@ -40,6 +44,9 @@ export const calculatorQueries = {
       .get(id, context.session.userId);
 
     if (!calc) {
+      logger.debug(
+        `Calculator with ID: ${id} not found for user: ${context.session.userId}`
+      );
       return null;
     }
 
@@ -71,7 +78,9 @@ export const calculatorQueries = {
         extensions: { code: "UNAUTHENTICATED" },
       });
     }
-    console.log(`Fetching all calculators for user: ${context.session.userId}`);
+    logger.debug(
+      `Fetching all calculators for user: ${context.session.userId}`
+    );
 
     // Fetch all calculators
     const calcs = db
@@ -81,6 +90,7 @@ export const calculatorQueries = {
       .all(context.session.userId);
 
     if (calcs.length === 0) {
+      logger.debug(`No calculators found for user: ${context.session.userId}`);
       return [];
     }
 
@@ -111,6 +121,9 @@ export const calculatorQueries = {
       }
     });
 
+    logger.debug(
+      `Retrieved ${calcs.length} calculators with their assessments`
+    );
     return calcs;
   },
 };
@@ -156,9 +169,16 @@ export const calculatorMutations = {
       // Initialize empty assessments array
       newCalculator._assessments = [];
 
+      logger.info(
+        `Calculator created: ID=${newCalculatorId}, Name=${name}, User=${context.session.userId}`
+      );
       return newCalculator;
     } catch (error) {
-      console.error("Error creating calculator:", error);
+      logger.error(`Error creating calculator: ${error.message}`, {
+        error,
+        userId: context.session.userId,
+        name,
+      });
       throw new GraphQLError("Failed to create calculator", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
       });
@@ -194,6 +214,9 @@ export const calculatorMutations = {
       .prepare("SELECT * FROM calculators WHERE id = ? AND user_id = ?")
       .get(id, context.session.userId);
     if (!calculator) {
+      logger.warn(
+        `Update attempted on non-existent or unauthorized calculator: ID=${id}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Calculator not found or access denied", {
         extensions: { code: "NOT_FOUND" },
       });
@@ -261,9 +284,23 @@ export const calculatorMutations = {
         )
         .all(id);
 
+      logger.info(
+        `Calculator updated: ID=${id}, User=${context.session.userId}`,
+        {
+          nameChanged: name !== undefined,
+          gradeChanged: min_desired_grade !== undefined,
+          assessmentsChanged: assessments !== undefined,
+          assessmentCount: assessments?.length,
+        }
+      );
+
       return updatedCalculator;
     } catch (error) {
-      console.error(`Error updating calculator ID ${id}:`, error);
+      logger.error(`Error updating calculator ID ${id}: ${error.message}`, {
+        error,
+        userId: context.session.userId,
+        calculatorId: id,
+      });
       throw new GraphQLError("Failed to update calculator", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
       });
@@ -292,6 +329,9 @@ export const calculatorMutations = {
       .prepare("SELECT id FROM calculators WHERE id = ? AND user_id = ?")
       .get(id, context.session.userId);
     if (!calculator) {
+      logger.warn(
+        `Delete attempted on non-existent or unauthorized calculator: ID=${id}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Calculator not found or access denied", {
         extensions: { code: "NOT_FOUND" },
       });
@@ -308,9 +348,17 @@ export const calculatorMutations = {
         return result.changes > 0; // Return true if a row was deleted
       });
 
-      return db_transaction();
+      const result = db_transaction();
+      logger.info(
+        `Calculator deleted: ID=${id}, User=${context.session.userId}`
+      );
+      return result;
     } catch (error) {
-      console.error(`Error deleting calculator ID ${id}:`, error);
+      logger.error(`Error deleting calculator ID ${id}: ${error.message}`, {
+        error,
+        userId: context.session.userId,
+        calculatorId: id,
+      });
       throw new GraphQLError("Failed to delete calculator", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
       });
@@ -333,14 +381,14 @@ export const calculatorTypeResolvers = {
      * @throws {GraphQLError} - If user not found (data inconsistency)
      */
     user: (calculator, _args, context) => {
-      console.log(
+      logger.debug(
         `Fetching user for calculator ID: ${calculator.id}, User ID: ${calculator.user_id}`
       );
       const user = db
         .prepare("SELECT id, username FROM users WHERE id = ?")
         .get(calculator.user_id);
       if (!user) {
-        console.error(
+        logger.error(
           `Inconsistency: User ID ${calculator.user_id} not found for Calculator ID ${calculator.id}`
         );
         throw new GraphQLError("Calculator owner not found", {
@@ -366,7 +414,7 @@ export const calculatorTypeResolvers = {
       }
 
       // Fallback to fetching assessments if not preloaded
-      console.log(`Fetching assessments for calculator ID: ${calculator.id}`);
+      logger.debug(`Fetching assessments for calculator ID: ${calculator.id}`);
       const assessments = db
         .prepare(
           "SELECT * FROM assessments WHERE calculator_id = ? ORDER BY id ASC"
@@ -387,7 +435,7 @@ export const calculatorTypeResolvers = {
       if (!calculator.template_id) {
         return null;
       }
-      console.log(
+      logger.debug(
         `Fetching template for calculator ID: ${calculator.id}, Template ID: ${calculator.template_id}`
       );
       const template = db

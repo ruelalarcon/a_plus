@@ -1,10 +1,20 @@
+# Javascript
 node_modules/
 dist/
 package-lock.json
+
+# Logging
+out/
+logs/
+
+# Database
 *.db
 *.sqlite
+
+# Environment
 .env
-out/
+
+# Environment
 *.plantuml
 *.description
 *.timestamp-*.mjs

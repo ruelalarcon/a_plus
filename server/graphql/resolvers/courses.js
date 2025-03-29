@@ -11,6 +11,10 @@
 
 import db from "../../db.js";
 import { GraphQLError } from "graphql";
+import { createLogger } from "../../utils/logger.js";
+
+// Create a context-specific logger
+const logger = createLogger("course-resolver");
 
 /**
  * Course-related GraphQL queries
@@ -32,7 +36,7 @@ export const courseQueries = {
         extensions: { code: "UNAUTHENTICATED" },
       });
     }
-    console.log(
+    logger.debug(
       `Fetching course with ID: ${id} for user: ${context.session.userId}`
     );
 
@@ -42,6 +46,9 @@ export const courseQueries = {
       .get(id, context.session.userId);
 
     if (!course) {
+      logger.debug(
+        `Course with ID: ${id} not found for user: ${context.session.userId}`
+      );
       return null;
     }
 
@@ -75,7 +82,7 @@ export const courseQueries = {
         extensions: { code: "UNAUTHENTICATED" },
       });
     }
-    console.log(`Fetching all courses for user: ${context.session.userId}`);
+    logger.debug(`Fetching all courses for user: ${context.session.userId}`);
 
     // Fetch all courses
     const courses = db
@@ -85,6 +92,7 @@ export const courseQueries = {
       .all(context.session.userId);
 
     if (courses.length === 0) {
+      logger.debug(`No courses found for user: ${context.session.userId}`);
       return [];
     }
 
@@ -119,6 +127,9 @@ export const courseQueries = {
       }
     });
 
+    logger.debug(
+      `Retrieved ${courses.length} courses with their prerequisites`
+    );
     return courses;
   },
 };
@@ -203,9 +214,20 @@ export const courseMutations = {
         newCourse._prerequisites = [];
       }
 
+      logger.info(
+        `Course created: ID=${newCourseId}, Name=${name}, User=${context.session.userId}`,
+        {
+          prerequisiteCount: resolvedPrerequisiteIds.length,
+        }
+      );
       return newCourse;
     } catch (error) {
-      console.error("Error creating course:", error);
+      logger.error(`Error creating course: ${error.message}`, {
+        error,
+        userId: context.session.userId,
+        name,
+        prerequisiteIds: resolvedPrerequisiteIds,
+      });
       // Rethrow specific errors like BAD_USER_INPUT
       if (
         error instanceof GraphQLError &&
@@ -248,6 +270,9 @@ export const courseMutations = {
       .prepare("SELECT id FROM courses WHERE id = ? AND user_id = ?")
       .get(id, context.session.userId);
     if (!course) {
+      logger.warn(
+        `Update attempted on non-existent or unauthorized course: ID=${id}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Course not found or access denied", {
         extensions: { code: "NOT_FOUND" },
       });
@@ -337,9 +362,19 @@ export const courseMutations = {
         )
         .all(id);
 
+      logger.info(`Course updated: ID=${id}, User=${context.session.userId}`, {
+        nameChanged: name !== undefined,
+        completedChanged: completed !== undefined,
+        prerequisitesChanged: prerequisiteIds !== undefined,
+        prerequisiteCount: prerequisiteIds?.length,
+      });
       return updatedCourse;
     } catch (error) {
-      console.error(`Error updating course ID ${id}:`, error);
+      logger.error(`Error updating course ID ${id}: ${error.message}`, {
+        error,
+        userId: context.session.userId,
+        courseId: id,
+      });
       // Rethrow specific errors like BAD_USER_INPUT
       if (
         error instanceof GraphQLError &&
@@ -375,6 +410,9 @@ export const courseMutations = {
       .prepare("SELECT id FROM courses WHERE id = ? AND user_id = ?")
       .get(id, context.session.userId);
     if (!course) {
+      logger.warn(
+        `Delete attempted on non-existent or unauthorized course: ID=${id}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Course not found or access denied", {
         extensions: { code: "NOT_FOUND" },
       });
@@ -391,9 +429,15 @@ export const courseMutations = {
         return result.changes > 0; // Return true if a row was deleted
       });
 
-      return db_transaction();
+      const result = db_transaction();
+      logger.info(`Course deleted: ID=${id}, User=${context.session.userId}`);
+      return result;
     } catch (error) {
-      console.error(`Error deleting course ID ${id}:`, error);
+      logger.error(`Error deleting course ID ${id}: ${error.message}`, {
+        error,
+        userId: context.session.userId,
+        courseId: id,
+      });
       throw new GraphQLError("Failed to delete course", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
       });
@@ -416,14 +460,14 @@ export const courseTypeResolvers = {
      * @throws {GraphQLError} - If user not found (data inconsistency)
      */
     user: (course, _args, context) => {
-      console.log(
+      logger.debug(
         `Fetching user for course ID: ${course.id}, User ID: ${course.user_id}`
       );
       const user = db
         .prepare("SELECT id, username FROM users WHERE id = ?")
         .get(course.user_id);
       if (!user) {
-        console.error(
+        logger.error(
           `Inconsistency: User ID ${course.user_id} not found for Course ID ${course.id}`
         );
         throw new GraphQLError("Course owner not found", {
@@ -449,7 +493,7 @@ export const courseTypeResolvers = {
       }
 
       // Fallback to fetching prerequisites if not preloaded
-      console.log(`Fetching prerequisites for course ID: ${course.id}`);
+      logger.debug(`Fetching prerequisites for course ID: ${course.id}`);
       const prerequisites = db
         .prepare(
           `

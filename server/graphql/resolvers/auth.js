@@ -9,6 +9,10 @@
 import db from "../../db.js";
 import { GraphQLError } from "graphql";
 import bcrypt from "bcrypt";
+import { createLogger } from "../../utils/logger.js";
+
+// Create a context-specific logger
+const logger = createLogger("auth-resolver");
 
 /**
  * Authentication-related GraphQL queries
@@ -28,7 +32,7 @@ export const authQueries = {
       return null; // Not logged in
     }
     // Fetch user details based on session userId
-    console.log(`Fetching current user with ID: ${context.session.userId}`);
+    logger.debug(`Fetching current user with ID: ${context.session.userId}`);
     const user = db
       .prepare("SELECT id, username FROM users WHERE id = ?")
       .get(context.session.userId);
@@ -46,7 +50,7 @@ export const authQueries = {
    * @returns {Object|null} - User object if found, null otherwise
    */
   user: (_parent, { id }, context) => {
-    console.log(`Fetching user with ID: ${id}`);
+    logger.debug(`Fetching user with ID: ${id}`);
     const user = db
       .prepare("SELECT id, username FROM users WHERE id = ?")
       .get(id);
@@ -106,15 +110,19 @@ export const authMutations = {
       const newUser = db
         .prepare("SELECT id, username FROM users WHERE id = ?")
         .get(newUserId);
+      logger.info(`New user registered: ${username} (ID: ${newUserId})`);
       return newUser;
     } catch (error) {
       // Handle unique constraint error for username
       if (error.code === "SQLITE_CONSTRAINT_UNIQUE") {
+        logger.warn(
+          `Registration failed: Username already exists - ${username}`
+        );
         throw new GraphQLError("Username already exists", {
           extensions: { code: "BAD_USER_INPUT" },
         });
       }
-      console.error("Error during registration:", error);
+      logger.error(`Error during registration: ${error.message}`, { error });
       throw new GraphQLError("Registration failed", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
       });
@@ -144,6 +152,7 @@ export const authMutations = {
       .get(username);
 
     if (!user) {
+      logger.warn(`Login failed: Invalid username - ${username}`);
       throw new GraphQLError("Invalid credentials", {
         extensions: { code: "UNAUTHENTICATED" },
       });
@@ -152,6 +161,9 @@ export const authMutations = {
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
+      logger.warn(
+        `Login failed: Invalid password for user ${username} (ID: ${user.id})`
+      );
       throw new GraphQLError("Invalid credentials", {
         extensions: { code: "UNAUTHENTICATED" },
       });
@@ -164,17 +176,20 @@ export const authMutations = {
     // This ensures the session cookie is set on the response
     await new Promise((resolve, reject) => {
       context.req.session.save((err) => {
-        if (err)
+        if (err) {
+          logger.error(`Failed to save session after login: ${err.message}`, {
+            error: err,
+          });
           reject(
             new GraphQLError("Failed to save session after login", {
               extensions: { code: "INTERNAL_SERVER_ERROR" },
             })
           );
-        else resolve();
+        } else resolve();
       });
     });
 
-    console.log(`User logged in: ${user.username} (ID: ${user.id})`);
+    logger.info(`User logged in: ${user.username} (ID: ${user.id})`);
     // Return only non-sensitive user data
     return { id: user.id, username: user.username };
   },
@@ -191,9 +206,12 @@ export const authMutations = {
   logout: async (_parent, _args, context) => {
     return new Promise((resolve, reject) => {
       if (context.req.session) {
+        const userId = context.session.userId;
         context.req.session.destroy((err) => {
           if (err) {
-            console.error("Error destroying session:", err);
+            logger.error(`Error destroying session: ${err.message}`, {
+              error: err,
+            });
             reject(
               new GraphQLError("Logout failed", {
                 extensions: { code: "INTERNAL_SERVER_ERROR" },
@@ -202,12 +220,13 @@ export const authMutations = {
           } else {
             // Optional: Clear cookie on client-side if needed, though destroying session should suffice
             // context.res.clearCookie('connect.sid'); // Adjust cookie name if necessary
-            console.log("User logged out");
+            logger.info(`User logged out (ID: ${userId || "unknown"})`);
             resolve(true);
           }
         });
       } else {
         // No session to destroy
+        logger.debug("Logout attempted with no active session");
         resolve(true);
       }
     });
@@ -228,7 +247,7 @@ export const authTypeResolvers = {
      * @returns {Array} - Array of templates belonging to the user
      */
     templates: (user, _args, context) => {
-      console.log(`Fetching templates for user ID: ${user.id}`);
+      logger.debug(`Fetching templates for user ID: ${user.id}`);
       const templates = db
         .prepare(
           "SELECT * FROM calculator_templates WHERE user_id = ? AND deleted = 0 ORDER BY created_at DESC"
@@ -246,7 +265,7 @@ export const authTypeResolvers = {
      * @returns {Array} - Array of courses belonging to the user
      */
     courses: (user, _args, context) => {
-      console.log(`Fetching courses for user ID: ${user.id}`);
+      logger.debug(`Fetching courses for user ID: ${user.id}`);
       const courses = db
         .prepare(
           "SELECT * FROM courses WHERE user_id = ? ORDER BY created_at ASC"

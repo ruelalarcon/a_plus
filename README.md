@@ -245,5 +245,3 @@ This project relies on several external dependencies to provide core functionali
 ### Course Prerequisites
 - Courses are displayed in levels based on dependencies
 - A course appears after all its prerequisites
-- Prevents circular dependencies
-- Prerequisites must be completed before dependent courses

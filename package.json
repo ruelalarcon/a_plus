@@ -19,7 +19,8 @@
     "express-session": "^1.18.0",
     "graphql": "^16.10.0",
     "lodash": "^4.17.21",
-    "svelte-routing": "^2.13.0"
+    "svelte-routing": "^2.13.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.26.9",
