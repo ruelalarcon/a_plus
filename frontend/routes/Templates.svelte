@@ -4,7 +4,7 @@
   import Comments from "../components/Comments.svelte";
   import { onMount } from "svelte";
   import { query, mutate } from "../lib/graphql/client.js";
-  import { MY_TEMPLATES } from "../lib/graphql/queries.js";
+  import { USER_TEMPLATES } from "../lib/graphql/queries.js";
   import { DELETE_TEMPLATE } from "../lib/graphql/mutations.js";
   import { userId } from "../lib/stores.js";
   import { Button } from "$lib/components/ui/button";
@@ -21,14 +21,24 @@
   let templates = [];
   let activeComments = null;
 
+  // Subscribe to userId changes to load templates when it becomes available
+  $: if ($userId) {
+    loadTemplates();
+  }
+
   onMount(async () => {
-    await loadTemplates();
+    if ($userId) {
+      await loadTemplates();
+    }
   });
 
   async function loadTemplates() {
+    if (!$userId) return;
+
     try {
-      const data = await query(MY_TEMPLATES);
-      templates = data.myTemplates || [];
+      const data = await query(USER_TEMPLATES, { id: $userId });
+      templates = data.user?.templates || [];
+      console.log("Loaded templates:", templates.length);
     } catch (error) {
       console.error("Error loading templates:", error);
       toast.error("Failed to load templates");

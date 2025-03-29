@@ -104,7 +104,7 @@ The test suite covers both backend API endpoints and frontend utility functions:
 - After authentication, users are redirected to their intended destination
 - Authenticated users are redirected from auth pages to dashboard
 
-### Backend (Express + SQLite)
+### Backend (Express + SQLite + GraphQL)
 
 #### Database Schema
 
@@ -127,103 +127,80 @@ Course Tracking:
 
 #### API Endpoints
 
-Authentication:
-- POST /api/register
-  - Body: { username, password }
-  - Password must be at least 6 characters
-  - Returns: { success: true } or error
-- POST /api/login
-  - Body: { username, password }
-  - Creates session cookie
-  - Returns: { success: true } or error
-- POST /api/logout
-  - Destroys session
-- GET /api/user
-  - Returns: { userId, username } or 401 if not logged in
+The application uses GraphQL instead of REST for its API, providing a single endpoint for all operations:
 
-Calculators:
-- GET /api/calculators
-  - Returns array of user's calculators with assessments
-  - Each calculator includes: id, name, min_desired_grade, assessments[]
-- POST /api/calculators
-  - Body: { name, min_desired_grade? }
-  - min_desired_grade is optional decimal value
-  - Returns: { id, name, min_desired_grade }
-- GET /api/calculators/:id
-  - Returns calculator with assessments and template info if based on template
-- PUT /api/calculators/:id
-  - Body: { name? } or { min_desired_grade? } or { assessments: [{name, weight, grade}] }
-  - Can update name, min_desired_grade, or assessments separately
-- DELETE /api/calculators/:id
-  - Deletes calculator and its assessments
+- `POST /graphql`
+  - All data operations are performed through this endpoint
+  - Accepts GraphQL queries and mutations in the request body
+  - Authentication is managed through sessions
 
-Templates:
-- POST /api/templates
-  - Body: { name, term, year, institution, assessments: [{name, weight}] }
-  - Creates template and adds creator's upvote
-  - Returns: { id }
-- GET /api/templates/search
-  - Query params: query, term, year, institution, page, limit
-  - Returns: { templates[], total, page, limit }
-  - Templates include vote status and creator info
-- POST /api/templates/:id/use
-  - Creates new calculator from template
-  - Copies assessment structure without grades
-  - Returns: { id } of new calculator
-- POST /api/templates/:id/vote
-  - Body: { vote: 1 or -1 }
-  - Updates vote count atomically
-  - Returns: { vote_count, user_vote }
-- GET /api/templates/:id/comments
-  - Returns array of comments with usernames and timestamps
-  - Ordered by creation date descending
-  - Each comment includes: id, content, username, created_at, updated_at
-- POST /api/templates/:id/comments
-  - Body: { content }
-  - Content cannot be empty
-  - Returns new comment with username and timestamps
-  - Automatically associates with current user
-- PUT /api/templates/:id/comments/:commentId
-  - Body: { content }
-  - Can only edit own comments
-  - Content cannot be empty
-  - Returns updated comment with new updated_at timestamp
-- DELETE /api/templates/:id/comments/:commentId
-  - Can only delete own comments
-  - Returns success message
-  - Permanently removes comment
+GraphQL Schema includes:
 
-Courses:
-- GET /api/courses
-  - Returns array of courses with prerequisites
-  - Courses include completion status
-- POST /api/courses
-  - Body: { name, prerequisiteIds: [] }
-  - Returns new course with prerequisites
-- PUT /api/courses/:id
-  - Body: { name?, completed?, prerequisiteIds? }
-  - Can update fields independently
-  - Returns updated course with prerequisites
+**Queries:**
+- `me`: Get the current logged-in user
+- `user(id: ID!)`: Get a specific user by ID
+- `calculator(id: ID!)`: Get a specific calculator
+- `myCalculators`: Get all calculators for the current user
+- `course(id: ID!)`: Get a specific course
+- `myCourses`: Get all courses for the current user
+- `health`: Health check endpoint returning "OK"
+
+**Mutations:**
+- **Authentication:**
+  - `register(username: String!, password: String!)`: Register a new user
+  - `login(username: String!, password: String!)`: Log in a user
+  - `logout`: Log out the current user
+
+- **Calculators:**
+  - `createCalculator(name: String!, min_desired_grade: Float)`: Create a new calculator
+  - `updateCalculator(id: ID!, name: String, min_desired_grade: Float, assessments: [AssessmentInput])`: Update calculator
+  - `deleteCalculator(id: ID!)`: Delete calculator
+
+- **Courses:**
+  - `createCourse(name: String!, prerequisiteIds: [ID])`: Create a new course
+  - `updateCourse(id: ID!, name: String, completed: Boolean, prerequisiteIds: [ID])`: Update course
+  - `deleteCourse(id: ID!)`: Delete course
+
+- **Templates:**
+  - Additional template-related mutations
+
+Schema types are provided in `server/graphql/schema.graphql`
 
 ## External Modules
 
 This project relies on several external dependencies to provide core functionality:
 
 ### Production Dependencies
+- **@apollo/client**: GraphQL client for frontend components
+- **@apollo/server**: GraphQL server implementation
 - **bcrypt**: Used for password hashing and verification to securely store user credentials
 - **better-sqlite3**: SQLite database driver providing a simple, fast interface for database operations
 - **dotenv**: Loads environment variables from .env files to manage configuration
 - **express**: Web application framework for building the API and server-side routes
 - **express-session**: Session middleware for Express to manage user authentication state
+- **graphql**: GraphQL implementation for JavaScript
 - **lodash**: Utility library providing helper functions for common programming tasks
 - **svelte-routing**: Client-side routing library for Svelte applications
+- **winston**: Logging library for server logs
 
 ### Development Dependencies
 - **@babel/preset-env**: Babel preset for transpiling modern JavaScript to compatible versions
 - **@sveltejs/vite-plugin-svelte**: Vite plugin for Svelte components integration
+- **@tailwindcss**: CSS framework and its plugins
+  - **@tailwindcss/container-queries**
+  - **@tailwindcss/forms**
+  - **@tailwindcss/typography**
+- **autoprefixer**: PostCSS plugin to parse CSS and add vendor prefixes
+- **bits-ui**: UI component primitives for Svelte
+- **clsx**: Utility for constructing className strings
 - **jest**: Testing framework for writing and running unit and integration tests
+- **lucide-svelte**: Icon library for Svelte
+- **mode-watcher**: Library for watching color mode changes
 - **supertest**: HTTP assertion library for testing API endpoints
 - **svelte**: Component framework for building the user interface
+- **svelte-sonner**: Toast notifications for Svelte
+- **tailwind-merge**: Utility for merging Tailwind CSS classes
+- **tailwind-variants**: Library for creating variants with Tailwind CSS
 - **vite**: Build tool and development server offering fast development experience
 
 ## Specific Behaviors

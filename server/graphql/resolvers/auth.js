@@ -248,12 +248,46 @@ export const authTypeResolvers = {
      */
     templates: (user, _args, context) => {
       logger.debug(`Fetching templates for user ID: ${user.id}`);
+
+      // Comprehensive query to eager load all required template data in one go
       const templates = db
         .prepare(
-          "SELECT * FROM calculator_templates WHERE user_id = ? AND deleted = 0 ORDER BY created_at DESC"
+          `
+          SELECT
+              t.*,
+              u.id as creator_id,
+              u.username as creator_username,
+              COALESCE(v.vote, 0) as user_vote
+          FROM calculator_templates t
+          JOIN users u ON t.user_id = u.id
+          LEFT JOIN template_votes v ON t.id = v.template_id AND v.user_id = ?
+          WHERE t.user_id = ? AND t.deleted = 0
+          ORDER BY t.created_at DESC
+          `
         )
-        .all(user.id);
-      return templates;
+        .all(context.session?.userId || 0, user.id);
+
+      // Transform results to include nested creator object with __typename
+      // to make GraphQL recognize it as a complete object to avoid resolver calls
+      const transformedTemplates = templates.map((template) => {
+        // Remove properties that would make GraphQL think it needs to call resolvers
+        const { creator_id, creator_username, ...templateData } = template;
+
+        return {
+          ...templateData,
+          __typename: "CalculatorTemplate",
+          creator: {
+            id: creator_id,
+            username: creator_username,
+            __typename: "User",
+          },
+        };
+      });
+
+      logger.debug(
+        `Retrieved ${templates.length} templates user ID: ${user.id}`
+      );
+      return transformedTemplates;
     },
 
     /**
@@ -265,6 +299,14 @@ export const authTypeResolvers = {
      * @returns {Array} - Array of courses belonging to the user
      */
     courses: (user, _args, context) => {
+      // Only return courses if this is the currently logged-in user
+      if (user.id !== context.session?.userId) {
+        logger.debug(
+          `Attempted to access courses for user ${user.id} by different user ${context.session?.userId}`
+        );
+        return []; // Return empty array for other users' courses
+      }
+
       logger.debug(`Fetching courses for user ID: ${user.id}`);
       const courses = db
         .prepare(

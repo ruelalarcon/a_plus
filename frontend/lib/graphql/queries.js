@@ -47,7 +47,7 @@ export const CALCULATOR = /* GraphQL */ `
   }
 `;
 
-export const MY_CALCULATORS = `
+export const MY_CALCULATORS = /* GraphQL */ `
   query MyCalculators {
     myCalculators {
       id
@@ -92,8 +92,22 @@ export const TEMPLATE = /* GraphQL */ `
 `;
 
 export const ALL_TEMPLATES = /* GraphQL */ `
-  query AllTemplates($query: String, $term: String, $year: Int, $institution: String, $page: Int, $limit: Int) {
-    allTemplates(query: $query, term: $term, year: $year, institution: $institution, page: $page, limit: $limit) {
+  query AllTemplates(
+    $query: String
+    $term: String
+    $year: Int
+    $institution: String
+    $page: Int
+    $limit: Int
+  ) {
+    allTemplates(
+      query: $query
+      term: $term
+      year: $year
+      institution: $institution
+      page: $page
+      limit: $limit
+    ) {
       templates {
         id
         name
@@ -128,6 +142,30 @@ export const MY_TEMPLATES = /* GraphQL */ `
       creator {
         id
         username
+      }
+    }
+  }
+`;
+
+// Query to get user's templates by user ID
+export const USER_TEMPLATES = /* GraphQL */ `
+  query UserTemplates($id: ID!) {
+    user(id: $id) {
+      id
+      username
+      templates {
+        id
+        name
+        term
+        year
+        institution
+        vote_count
+        user_vote
+        created_at
+        creator {
+          id
+          username
+        }
       }
     }
   }

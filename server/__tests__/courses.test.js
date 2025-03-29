@@ -1,194 +1,403 @@
-import supertest from 'supertest';
-import { app } from '../server.js';
-import { createAuthenticatedUser } from './test-helpers.js';
-import { clearAllTables } from '../db.js';
+import supertest from "supertest";
+import { app, startServer } from "../server.js";
+import { createAuthenticatedUser } from "./test-helpers.js";
+import { clearAllTables } from "../db.js";
 
-const request = supertest(app);
+// Initialize request after server starts
+let request;
+
+beforeAll(async () => {
+  // Make sure the server is started before tests
+  await startServer();
+  request = supertest(app);
+});
 
 /**
- * Helper function to create a test course
+ * Helper function to create a test course using GraphQL
  */
-async function createCourse(cookies, data = { name: 'Test Course' }) {
-    const response = await request
-        .post('/api/courses')
-        .set('Cookie', cookies)
-        .send(data);
+async function createCourse(cookies, data = { name: "Test Course" }) {
+  const response = await request
+    .post("/graphql")
+    .set("Cookie", cookies)
+    .send({
+      query: `
+        mutation CreateCourse($name: String!, $prerequisiteIds: [ID!]) {
+          createCourse(name: $name, prerequisiteIds: $prerequisiteIds) {
+            id
+            name
+            completed
+            prerequisites {
+              id
+              name
+            }
+          }
+        }
+      `,
+      variables: data,
+    });
 
-    return response.body;
+  if (!response.body.data?.createCourse) {
+    console.error("Failed to create course:", response.body);
+    throw new Error("Failed to create course");
+  }
+
+  return response.body.data.createCourse;
 }
 
-describe('Courses API', () => {
-    let authCookies;
+describe("Courses API", () => {
+  let authCookies;
+
+  beforeEach(async () => {
+    // Clear database and create a unique test user
+    clearAllTables();
+    // Create a user and get auth cookies before each test
+    authCookies = await createAuthenticatedUser("courseuser_" + Date.now());
+  });
+
+  describe("GraphQL myCourses query", () => {
+    it("should return empty array when no courses exist", async () => {
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            query {
+              myCourses {
+                id
+                name
+                completed
+                prerequisites {
+                  id
+                  name
+                }
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data.myCourses)).toBe(true);
+      expect(response.body.data.myCourses.length).toBe(0);
+    });
+
+    it("should return courses for authenticated user", async () => {
+      // Create a course first
+      await createCourse(authCookies);
+
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            query {
+              myCourses {
+                id
+                name
+                completed
+                prerequisites {
+                  id
+                  name
+                }
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data.myCourses)).toBe(true);
+      expect(response.body.data.myCourses.length).toBe(1);
+      expect(response.body.data.myCourses[0]).toHaveProperty(
+        "name",
+        "Test Course"
+      );
+      expect(response.body.data.myCourses[0]).toHaveProperty("prerequisites");
+    });
+
+    it("should require authentication", async () => {
+      const response = await request.post("/graphql").send({
+        query: `
+          query {
+            myCourses {
+              id
+              name
+            }
+          }
+        `,
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+      expect(response.body.errors[0].message).toContain("Not authenticated");
+    });
+  });
+
+  describe("GraphQL createCourse mutation", () => {
+    it("should create a new course", async () => {
+      const courseData = {
+        name: "New Course",
+      };
+
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation CreateCourse($name: String!) {
+              createCourse(name: $name) {
+                id
+                name
+                completed
+                prerequisites {
+                  id
+                  name
+                }
+              }
+            }
+          `,
+          variables: courseData,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.createCourse).toHaveProperty("id");
+      expect(response.body.data.createCourse).toHaveProperty(
+        "name",
+        courseData.name
+      );
+      expect(response.body.data.createCourse).toHaveProperty("prerequisites");
+      expect(response.body.data.createCourse.prerequisites).toEqual([]);
+    });
+
+    it("should create a course with prerequisites", async () => {
+      // Create prerequisites first
+      const prereq1 = await createCourse(authCookies, {
+        name: "Prerequisite 1",
+      });
+      const prereq2 = await createCourse(authCookies, {
+        name: "Prerequisite 2",
+      });
+
+      const courseData = {
+        name: "Advanced Course",
+        prerequisiteIds: [prereq1.id, prereq2.id],
+      };
+
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation CreateCourse($name: String!, $prerequisiteIds: [ID!]) {
+              createCourse(name: $name, prerequisiteIds: $prerequisiteIds) {
+                id
+                name
+                prerequisites {
+                  id
+                  name
+                }
+              }
+            }
+          `,
+          variables: courseData,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.createCourse).toHaveProperty("id");
+      expect(response.body.data.createCourse).toHaveProperty("prerequisites");
+      expect(response.body.data.createCourse.prerequisites.length).toBe(2);
+    });
+  });
+
+  describe("GraphQL updateCourse mutation", () => {
+    let course;
 
     beforeEach(async () => {
-        // Clear database and create a unique test user
-        clearAllTables();
-        // Create a user and get auth cookies before each test
-        authCookies = await createAuthenticatedUser('courseuser_' + Date.now());
+      // Create a course to update
+      course = await createCourse(authCookies);
     });
 
-    describe('GET /api/courses', () => {
-        it('should return empty array when no courses exist', async () => {
-            const response = await request
-                .get('/api/courses')
-                .set('Cookie', authCookies);
-
-            expect(response.status).toBe(200);
-            expect(Array.isArray(response.body)).toBe(true);
-            expect(response.body.length).toBe(0);
+    it("should update course name", async () => {
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation UpdateCourse($id: ID!, $name: String) {
+              updateCourse(id: $id, name: $name) {
+                id
+                name
+              }
+            }
+          `,
+          variables: {
+            id: course.id,
+            name: "Updated Course",
+          },
         });
 
-        it('should return courses for authenticated user', async () => {
-            // Create a course first
-            await createCourse(authCookies);
-
-            const response = await request
-                .get('/api/courses')
-                .set('Cookie', authCookies);
-
-            expect(response.status).toBe(200);
-            expect(Array.isArray(response.body)).toBe(true);
-            expect(response.body.length).toBe(1);
-            expect(response.body[0]).toHaveProperty('name', 'Test Course');
-            expect(response.body[0]).toHaveProperty('prerequisites');
-        });
-
-        it('should require authentication', async () => {
-            const response = await request.get('/api/courses');
-
-            expect(response.status).toBe(401);
-            expect(response.body).toHaveProperty('error');
-        });
+      expect(response.status).toBe(200);
+      expect(response.body.data.updateCourse).toHaveProperty(
+        "name",
+        "Updated Course"
+      );
     });
 
-    describe('POST /api/courses', () => {
-        it('should create a new course', async () => {
-            const courseData = {
-                name: 'New Course'
-            };
-
-            const response = await request
-                .post('/api/courses')
-                .set('Cookie', authCookies)
-                .send(courseData);
-
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveProperty('id');
-            expect(response.body).toHaveProperty('name', courseData.name);
-            expect(response.body).toHaveProperty('prerequisites');
-            expect(response.body.prerequisites).toEqual([]);
+    it("should mark course as completed", async () => {
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation UpdateCourse($id: ID!, $completed: Boolean) {
+              updateCourse(id: $id, completed: $completed) {
+                id
+                name
+                completed
+              }
+            }
+          `,
+          variables: {
+            id: course.id,
+            completed: true,
+          },
         });
 
-        it('should create a course with prerequisites', async () => {
-            // Create prerequisites first
-            const prereq1 = await createCourse(authCookies, { name: 'Prerequisite 1' });
-            const prereq2 = await createCourse(authCookies, { name: 'Prerequisite 2' });
-
-            const courseData = {
-                name: 'Advanced Course',
-                prerequisiteIds: [prereq1.id, prereq2.id]
-            };
-
-            const response = await request
-                .post('/api/courses')
-                .set('Cookie', authCookies)
-                .send(courseData);
-
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveProperty('id');
-            expect(response.body).toHaveProperty('prerequisites');
-            expect(response.body.prerequisites.length).toBe(2);
-        });
+      expect(response.status).toBe(200);
+      expect(response.body.data.updateCourse).toHaveProperty("completed", true);
     });
 
-    describe('PUT /api/courses/:id', () => {
-        let course;
+    it("should update course prerequisites", async () => {
+      // Create a prerequisite
+      const prereq = await createCourse(authCookies, {
+        name: "Prerequisite Course",
+      });
 
-        beforeEach(async () => {
-            // Create a course to update
-            course = await createCourse(authCookies);
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation UpdateCourse($id: ID!, $prerequisiteIds: [ID!]) {
+              updateCourse(id: $id, prerequisiteIds: $prerequisiteIds) {
+                id
+                name
+                prerequisites {
+                  id
+                  name
+                }
+              }
+            }
+          `,
+          variables: {
+            id: course.id,
+            prerequisiteIds: [prereq.id],
+          },
         });
 
-        it('should update course name', async () => {
-            const response = await request
-                .put(`/api/courses/${course.id}`)
-                .set('Cookie', authCookies)
-                .send({ name: 'Updated Course' });
+      expect(response.status).toBe(200);
+      expect(response.body.data.updateCourse).toHaveProperty("prerequisites");
+      expect(response.body.data.updateCourse.prerequisites.length).toBe(1);
+      expect(response.body.data.updateCourse.prerequisites[0].name).toBe(
+        "Prerequisite Course"
+      );
+    });
+  });
 
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveProperty('name', 'Updated Course');
+  describe("GraphQL deleteCourse mutation", () => {
+    it("should delete a course", async () => {
+      // Create a course to delete
+      const course = await createCourse(authCookies);
+
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation DeleteCourse($id: ID!) {
+              deleteCourse(id: $id)
+            }
+          `,
+          variables: { id: course.id },
         });
 
-        it('should mark course as completed', async () => {
-            const response = await request
-                .put(`/api/courses/${course.id}`)
-                .set('Cookie', authCookies)
-                .send({ completed: 1 });  // Using completed: 1 instead of true because SQLite stores booleans as integers (0/1)
+      expect(response.status).toBe(200);
+      expect(response.body.data.deleteCourse).toBe(true);
 
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveProperty('completed', 1);
+      // Verify course is deleted
+      const getResponse = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            query {
+              myCourses {
+                id
+                name
+              }
+            }
+          `,
         });
 
-        it('should update course prerequisites', async () => {
-            // Create a prerequisite
-            const prereq = await createCourse(authCookies, { name: 'Prerequisite Course' });
-
-            const response = await request
-                .put(`/api/courses/${course.id}`)
-                .set('Cookie', authCookies)
-                .send({ prerequisiteIds: [prereq.id] });
-
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveProperty('prerequisites');
-            expect(response.body.prerequisites.length).toBe(1);
-            expect(response.body.prerequisites[0].name).toBe('Prerequisite Course');
-        });
+      expect(getResponse.body.data.myCourses.length).toBe(0);
     });
 
-    describe('DELETE /api/courses/:id', () => {
-        it('should delete a course', async () => {
-            // Create a course to delete
-            const course = await createCourse(authCookies);
+    it("should delete prerequisites when course is deleted", async () => {
+      // Create two courses
+      const course1 = await createCourse(authCookies, { name: "Course 1" });
+      const course2 = await createCourse(authCookies, { name: "Course 2" });
 
-            const response = await request
-                .delete(`/api/courses/${course.id}`)
-                .set('Cookie', authCookies);
-
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveProperty('success', true);
-
-            // Verify course is deleted
-            const getResponse = await request
-                .get('/api/courses')
-                .set('Cookie', authCookies);
-
-            expect(getResponse.body.length).toBe(0);
+      // Make course2 depend on course1
+      await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation UpdateCourse($id: ID!, $prerequisiteIds: [ID!]) {
+              updateCourse(id: $id, prerequisiteIds: $prerequisiteIds) {
+                id
+              }
+            }
+          `,
+          variables: {
+            id: course2.id,
+            prerequisiteIds: [course1.id],
+          },
         });
 
-        it('should delete prerequisites when course is deleted', async () => {
-            // Create two courses
-            const course1 = await createCourse(authCookies, { name: 'Course 1' });
-            const course2 = await createCourse(authCookies, { name: 'Course 2' });
-
-            // Make course2 depend on course1
-            await request
-                .put(`/api/courses/${course2.id}`)
-                .set('Cookie', authCookies)
-                .send({ prerequisiteIds: [course1.id] });
-
-            // Delete course1
-            await request
-                .delete(`/api/courses/${course1.id}`)
-                .set('Cookie', authCookies);
-
-            // Get course2 and verify it no longer has prerequisites
-            const getResponse = await request
-                .get('/api/courses')
-                .set('Cookie', authCookies);
-
-            // Only course2 should remain
-            expect(getResponse.body.length).toBe(1);
-            expect(getResponse.body[0].prerequisites.length).toBe(0);
+      // Delete course1
+      await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation DeleteCourse($id: ID!) {
+              deleteCourse(id: $id)
+            }
+          `,
+          variables: { id: course1.id },
         });
+
+      // Get course2 and verify it no longer has prerequisites
+      const getResponse = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            query {
+              myCourses {
+                id
+                name
+                prerequisites {
+                  id
+                  name
+                }
+              }
+            }
+          `,
+        });
+
+      // Only course2 should remain
+      expect(getResponse.body.data.myCourses.length).toBe(1);
+      expect(getResponse.body.data.myCourses[0].prerequisites.length).toBe(0);
     });
+  });
 });

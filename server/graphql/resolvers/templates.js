@@ -50,8 +50,21 @@ export const templateQueries = {
       logger.debug(`Template with ID: ${id} not found or deleted`);
       return null;
     }
+
+    // Transform template to include properly formatted creator object
+    const transformedTemplate = {
+      ...template,
+      __typename: "CalculatorTemplate",
+      creator: {
+        id: template.user_id,
+        username: template.creator_name,
+        __typename: "User",
+      },
+    };
+
+    logger.debug(`Template with ID: ${id} found and transformed`);
     // Nested resolvers handle assessments and comments
-    return template;
+    return transformedTemplate;
   },
 
   /**
@@ -80,81 +93,75 @@ export const templateQueries = {
     const safePage = Math.max(Number(page) || 1, 1);
     const offset = (safePage - 1) * safeLimit;
 
-    // Build WHERE clauses and parameters dynamically
-    const whereClauses = ["t.deleted = 0", "t.vote_count >= ?"];
-    const countParams = [MIN_VOTES];
-    const mainParams = [];
-
-    // Search query applies to name, term, institution
-    const searchTerm = `%${query || ""}%`;
-    if (query) {
-      whereClauses.push(
-        "(t.name LIKE ? OR t.term LIKE ? OR t.institution LIKE ?)"
-      );
-      countParams.push(searchTerm, searchTerm, searchTerm);
-      mainParams.push(searchTerm, searchTerm, searchTerm);
-    }
-
-    // Specific filters
-    const termFilter = `%${term || ""}%`;
-    if (term) {
-      whereClauses.push("t.term LIKE ?");
-      countParams.push(termFilter);
-      mainParams.push(termFilter);
-    }
-    const yearFilter = year || 0;
-    if (year) {
-      whereClauses.push("t.year = ?");
-      countParams.push(yearFilter);
-      mainParams.push(yearFilter);
-    }
-    const institutionFilter = `%${institution || ""}%`;
-    if (institution) {
-      whereClauses.push("t.institution LIKE ?");
-      countParams.push(institutionFilter);
-      mainParams.push(institutionFilter);
-    }
-
-    const whereString = whereClauses.join(" AND ");
-
-    logger.debug(
-      `Searching templates with filters: query=${query}, term=${term}, year=${year}, institution=${institution}, page=${safePage}, limit=${safeLimit}`
-    );
-
     try {
-      // Query to get total count matching filters
+      // Query to get total count of matching templates
       const countQuery = db
         .prepare(
           `
           SELECT COUNT(*) as total
           FROM calculator_templates t
-          WHERE ${whereString}
-        `
+          WHERE
+              (t.name LIKE ? OR            -- Match on name
+              t.term LIKE ? OR             -- Match on term
+              t.year = ? OR                -- Exact year match
+              t.institution LIKE ?) AND    -- Match on institution
+              t.vote_count >= ? AND        -- Minimum vote threshold
+              t.deleted = 0                -- Exclude deleted templates
+      `
         )
-        .get(...countParams);
+        .get(
+          `%${query || ""}%`,
+          `%${term || ""}%`,
+          year || 0,
+          `%${institution || ""}%`,
+          MIN_VOTES
+        );
 
-      const total = countQuery.total;
-
-      // Base query for fetching templates with joins and filtering
-      // Ordering priority:
-      // 1. Match score (name, term, year, institution)
-      // 2. Vote count
-      // 3. Creation date
-      const baseSql = `
+      // Complex search query with ranking - EXACTLY as in the REST API
+      const templates = db
+        .prepare(
+          `
           SELECT
               t.*,
-              u.username as creator_name, -- Included for consistency, though nested resolver handles it
+              u.username as creator_name,
               COALESCE(v.vote, 0) as user_vote,
               (
-                  CASE WHEN t.name LIKE ? THEN 1 ELSE 0 END +
-                  CASE WHEN t.term LIKE ? THEN 1 ELSE 0 END +
-                  CASE WHEN t.year = ? THEN 1 ELSE 0 END +
-                  CASE WHEN t.institution LIKE ? THEN 1 ELSE 0 END
+                  -- Calculate match score based on which fields match
+                  CASE
+                      WHEN t.name LIKE ? THEN 1
+                      ELSE 0
+                  END +
+                  CASE
+                      WHEN t.term LIKE ? THEN 1
+                      ELSE 0
+                  END +
+                  CASE
+                      WHEN t.year = ? THEN 1
+                      ELSE 0
+                  END +
+                  CASE
+                      WHEN t.institution LIKE ? THEN 1
+                      ELSE 0
+                  END
               ) as match_score
           FROM calculator_templates t
           JOIN users u ON t.user_id = u.id
           LEFT JOIN template_votes v ON t.id = v.template_id AND v.user_id = ?
-          WHERE ${whereString}
+          WHERE
+              -- Match any field
+              (t.name LIKE ? OR
+              t.term LIKE ? OR
+              t.year = ? OR
+              t.institution LIKE ?) AND
+              t.vote_count >= ? AND
+              t.deleted = 0
+          -- Order by:
+          -- 1. Number of matching fields
+          -- 2. Institution match priority
+          -- 3. Name match priority
+          -- 4. Term match priority
+          -- 5. Vote count
+          -- 6. Most recent
           ORDER BY match_score DESC,
               CASE WHEN t.institution LIKE ? THEN 0 ELSE 1 END,
               CASE WHEN t.name LIKE ? THEN 0 ELSE 1 END,
@@ -162,75 +169,64 @@ export const templateQueries = {
               t.vote_count DESC,
               t.created_at DESC
           LIMIT ? OFFSET ?
-        `;
+      `
+        )
+        .all(
+          `%${query || ""}%`,
+          `%${term || ""}%`,
+          year || 0,
+          `%${institution || ""}%`,
+          context.session?.userId ?? 0,
+          `%${query || ""}%`,
+          `%${term || ""}%`,
+          year || 0,
+          `%${institution || ""}%`,
+          MIN_VOTES,
+          `%${institution || ""}%`,
+          `%${query || ""}%`,
+          `%${term || ""}%`,
+          safeLimit,
+          offset
+        );
 
-      // Prepare parameters for the main query
-      const finalMainParams = [
-        searchTerm, // match_score name
-        termFilter, // match_score term (use filter value if specific, else query)
-        yearFilter, // match_score year
-        institutionFilter, // match_score institution
-        context.session?.userId ?? 0, // user_id for LEFT JOIN template_votes
-        ...mainParams, // Params for WHERE clause
-        MIN_VOTES, // vote_count threshold for WHERE clause
-        institutionFilter, // ORDER BY institution
-        searchTerm, // ORDER BY name
-        termFilter, // ORDER BY term
-        safeLimit, // LIMIT
-        offset, // OFFSET
-      ];
+      // Log search results
+      logger.debug(
+        `Found ${templates.length} templates (total count: ${countQuery.total})`
+      );
+      if (templates.length > 0) {
+        logger.debug(
+          `First template: id=${templates[0].id}, name="${templates[0].name}"`
+        );
+      }
 
-      const templates = db.prepare(baseSql).all(...finalMainParams);
-
-      // Nested resolvers will fetch assessments/comments for each template
-      logger.debug(`Found ${templates.length} templates matching criteria (total: ${total})`);
+      // Transform templates to include properly formatted creator objects
+      const transformedTemplates = templates.map((template) => {
+        return {
+          ...template,
+          __typename: "CalculatorTemplate",
+          creator: {
+            id: template.user_id,
+            username: template.creator_name,
+            __typename: "User",
+          },
+        };
+      });
 
       return {
-        templates,
-        total,
+        templates: transformedTemplates,
+        total: countQuery.total,
         page: safePage,
         limit: safeLimit,
       };
     } catch (error) {
-      logger.error(`Error searching templates: ${error.message}`, { error, filters: { query, term, year, institution } });
+      logger.error(`Error searching templates: ${error.message}`, {
+        error,
+        filters: { query, term, year, institution },
+      });
       throw new GraphQLError("Failed to search templates", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
       });
     }
-  },
-
-  /**
-   * Retrieves all templates created by the current user
-   *
-   * @param {Object} _parent - Parent resolver object (unused)
-   * @param {Object} _args - GraphQL arguments (unused)
-   * @param {Object} context - Request context containing session data
-   * @returns {Array} - Array of template objects created by the user
-   * @throws {GraphQLError} - If user is not authenticated
-   */
-  myTemplates: (_parent, _args, context) => {
-    if (!context.session?.userId) {
-      throw new GraphQLError("Not authenticated", {
-        extensions: { code: "UNAUTHENTICATED" },
-      });
-    }
-    logger.debug(`Fetching all templates for user: ${context.session.userId}`);
-    // Join needed for comment_count, user_vote is always 1 for own templates
-    const templates = db
-      .prepare(
-        `
-        SELECT t.*, u.username as creator_name,
-               1 as user_vote -- Creator's vote is always 1
-        FROM calculator_templates t
-        JOIN users u ON t.user_id = u.id
-        WHERE t.user_id = ? AND t.deleted = 0
-        ORDER BY t.created_at DESC
-      `
-      )
-      .all(context.session.userId);
-    
-    logger.debug(`Retrieved ${templates.length} templates for user: ${context.session.userId}`);
-    return templates;
   },
 
   /**
@@ -252,7 +248,9 @@ export const templateQueries = {
       )
       .get(templateId);
     if (!templateExists) {
-      logger.warn(`Attempted to fetch comments for non-existent template: ${templateId}`);
+      logger.warn(
+        `Attempted to fetch comments for non-existent template: ${templateId}`
+      );
       throw new GraphQLError("Template not found or deleted", {
         extensions: { code: "NOT_FOUND" },
       });
@@ -264,7 +262,9 @@ export const templateQueries = {
       )
       .all(templateId);
     // Nested resolvers will handle author/template fields
-    logger.debug(`Retrieved ${comments.length} comments for template ID: ${templateId}`);
+    logger.debug(
+      `Retrieved ${comments.length} comments for template ID: ${templateId}`
+    );
     return comments;
   },
 };
@@ -342,23 +342,26 @@ export const templateMutations = {
       const newTemplate = db
         .prepare("SELECT * FROM calculator_templates WHERE id = ?")
         .get(newTemplateId);
-        
-      logger.info(`Template created: ID=${newTemplateId}, Name=${name}, User=${context.session.userId}`, {
-        assessmentCount: assessments.length,
-        term,
-        year,
-        institution
-      });
+
+      logger.info(
+        `Template created: ID=${newTemplateId}, Name=${name}, User=${context.session.userId}`,
+        {
+          assessmentCount: assessments.length,
+          term,
+          year,
+          institution,
+        }
+      );
       return newTemplate;
     } catch (error) {
-      logger.error(`Error creating template: ${error.message}`, { 
-        error, 
+      logger.error(`Error creating template: ${error.message}`, {
+        error,
         userId: context.session.userId,
         name,
         term,
         year,
         institution,
-        assessmentCount: assessments?.length 
+        assessmentCount: assessments?.length,
       });
       // Handle potential unique constraint errors if needed
       throw new GraphQLError("Failed to create template", {
@@ -391,7 +394,9 @@ export const templateMutations = {
       )
       .get(id, context.session.userId);
     if (!template) {
-      logger.warn(`Delete attempted on non-existent or unauthorized template: ID=${id}, User=${context.session.userId}`);
+      logger.warn(
+        `Delete attempted on non-existent or unauthorized template: ID=${id}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Template not found or access denied", {
         extensions: { code: "NOT_FOUND" },
       });
@@ -403,14 +408,14 @@ export const templateMutations = {
       const result = db
         .prepare("UPDATE calculator_templates SET deleted = 1 WHERE id = ?")
         .run(id);
-      
+
       logger.info(`Template deleted: ID=${id}, User=${context.session.userId}`);
       return result.changes > 0; // Return true if updated
     } catch (error) {
-      logger.error(`Error deleting template ID ${id}: ${error.message}`, { 
-        error, 
+      logger.error(`Error deleting template ID ${id}: ${error.message}`, {
+        error,
         userId: context.session.userId,
-        templateId: id 
+        templateId: id,
       });
       throw new GraphQLError("Failed to delete template", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
@@ -442,7 +447,9 @@ export const templateMutations = {
       )
       .get(templateId);
     if (!template) {
-      logger.warn(`Use template attempted with non-existent template: ID=${templateId}, User=${context.session.userId}`);
+      logger.warn(
+        `Use template attempted with non-existent template: ID=${templateId}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Template not found or is deleted", {
         extensions: { code: "NOT_FOUND" },
       });
@@ -481,14 +488,16 @@ export const templateMutations = {
       const newCalculator = db
         .prepare("SELECT * FROM calculators WHERE id = ?")
         .get(newCalculatorId);
-        
-      logger.info(`Calculator created from template: Calculator ID=${newCalculatorId}, Template ID=${templateId}, User=${context.session.userId}`);
+
+      logger.info(
+        `Calculator created from template: Calculator ID=${newCalculatorId}, Template ID=${templateId}, User=${context.session.userId}`
+      );
       return newCalculator;
     } catch (error) {
-      logger.error(`Error using template ID ${templateId}: ${error.message}`, { 
-        error, 
+      logger.error(`Error using template ID ${templateId}: ${error.message}`, {
+        error,
         userId: context.session.userId,
-        templateId 
+        templateId,
       });
       throw new GraphQLError("Failed to create calculator from template", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
@@ -527,7 +536,9 @@ export const templateMutations = {
       )
       .get(templateId);
     if (!template) {
-      logger.warn(`Vote attempted on non-existent template: ID=${templateId}, User=${context.session.userId}`);
+      logger.warn(
+        `Vote attempted on non-existent template: ID=${templateId}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Template not found or deleted", {
         extensions: { code: "NOT_FOUND" },
       });
@@ -535,7 +546,9 @@ export const templateMutations = {
 
     // Prevent voting on own templates
     if (template.user_id === context.session.userId) {
-      logger.warn(`User attempted to vote on their own template: Template ID=${templateId}, User=${context.session.userId}`);
+      logger.warn(
+        `User attempted to vote on their own template: Template ID=${templateId}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Cannot vote on your own template", {
         extensions: { code: "BAD_USER_INPUT" },
       });
@@ -596,15 +609,20 @@ export const templateMutations = {
         )
         .get(context.session.userId, templateId);
 
-      logger.info(`User voted on template: Template ID=${templateId}, User=${context.session.userId}, Vote=${vote}`);
+      logger.info(
+        `User voted on template: Template ID=${templateId}, User=${context.session.userId}, Vote=${vote}`
+      );
       return updatedTemplate;
     } catch (error) {
-      logger.error(`Error voting on template ID ${templateId}: ${error.message}`, { 
-        error, 
-        userId: context.session.userId,
-        templateId,
-        vote 
-      });
+      logger.error(
+        `Error voting on template ID ${templateId}: ${error.message}`,
+        {
+          error,
+          userId: context.session.userId,
+          templateId,
+          vote,
+        }
+      );
       throw new GraphQLError("Failed to vote on template", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
       });
@@ -634,13 +652,17 @@ export const templateMutations = {
       )
       .get(templateId);
     if (!template) {
-      logger.warn(`Vote removal attempted on non-existent template: ID=${templateId}, User=${context.session.userId}`);
+      logger.warn(
+        `Vote removal attempted on non-existent template: ID=${templateId}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Template not found or deleted", {
         extensions: { code: "NOT_FOUND" },
       });
     }
     if (template.user_id === context.session.userId) {
-      logger.warn(`User attempted to remove vote from their own template: Template ID=${templateId}, User=${context.session.userId}`);
+      logger.warn(
+        `User attempted to remove vote from their own template: Template ID=${templateId}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Cannot remove vote from your own template", {
         extensions: { code: "BAD_USER_INPUT" },
       });
@@ -678,14 +700,19 @@ export const templateMutations = {
         )
         .get(context.session.userId, templateId);
 
-      logger.info(`User removed vote from template: Template ID=${templateId}, User=${context.session.userId}`);
+      logger.info(
+        `User removed vote from template: Template ID=${templateId}, User=${context.session.userId}`
+      );
       return updatedTemplate;
     } catch (error) {
-      logger.error(`Error removing vote from template ID ${templateId}: ${error.message}`, { 
-        error, 
-        userId: context.session.userId,
-        templateId 
-      });
+      logger.error(
+        `Error removing vote from template ID ${templateId}: ${error.message}`,
+        {
+          error,
+          userId: context.session.userId,
+          templateId,
+        }
+      );
       throw new GraphQLError("Failed to remove vote from template", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
       });
@@ -722,7 +749,9 @@ export const templateMutations = {
       )
       .get(templateId);
     if (!templateExists) {
-      logger.warn(`Comment attempted on non-existent template: ID=${templateId}, User=${context.session.userId}`);
+      logger.warn(
+        `Comment attempted on non-existent template: ID=${templateId}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Template not found or deleted", {
         extensions: { code: "NOT_FOUND" },
       });
@@ -753,8 +782,10 @@ export const templateMutations = {
         )
         .get(newCommentId);
 
-      logger.info(`Comment added to template: Comment ID=${newCommentId}, Template ID=${templateId}, User=${context.session.userId}`);
-        
+      logger.info(
+        `Comment added to template: Comment ID=${newCommentId}, Template ID=${templateId}, User=${context.session.userId}`
+      );
+
       // Format the response to match our GraphQL schema expectations
       return {
         ...newComment,
@@ -764,12 +795,15 @@ export const templateMutations = {
         },
       };
     } catch (error) {
-      logger.error(`Error adding comment to template ID ${templateId}: ${error.message}`, { 
-        error, 
-        userId: context.session.userId,
-        templateId,
-        contentLength: content?.length 
-      });
+      logger.error(
+        `Error adding comment to template ID ${templateId}: ${error.message}`,
+        {
+          error,
+          userId: context.session.userId,
+          templateId,
+          contentLength: content?.length,
+        }
+      );
       throw new GraphQLError("Failed to add comment", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
       });
@@ -805,13 +839,17 @@ export const templateMutations = {
       .prepare("SELECT id, user_id FROM template_comments WHERE id = ?")
       .get(commentId);
     if (!comment) {
-      logger.warn(`Update attempted on non-existent comment: ID=${commentId}, User=${context.session.userId}`);
+      logger.warn(
+        `Update attempted on non-existent comment: ID=${commentId}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Comment not found", {
         extensions: { code: "NOT_FOUND" },
       });
     }
     if (comment.user_id !== context.session.userId) {
-      logger.warn(`User attempted to update another user's comment: Comment ID=${commentId}, Comment Owner=${comment.user_id}, Requesting User=${context.session.userId}`);
+      logger.warn(
+        `User attempted to update another user's comment: Comment ID=${commentId}, Comment Owner=${comment.user_id}, Requesting User=${context.session.userId}`
+      );
       throw new GraphQLError("Not authorized to update this comment", {
         extensions: { code: "FORBIDDEN" },
       });
@@ -837,8 +875,10 @@ export const templateMutations = {
         )
         .get(commentId);
 
-      logger.info(`Comment updated: Comment ID=${commentId}, User=${context.session.userId}`);
-        
+      logger.info(
+        `Comment updated: Comment ID=${commentId}, User=${context.session.userId}`
+      );
+
       // Format the response to match our GraphQL schema expectations
       return {
         ...updatedComment,
@@ -848,11 +888,11 @@ export const templateMutations = {
         },
       };
     } catch (error) {
-      logger.error(`Error updating comment ID ${commentId}: ${error.message}`, { 
-        error, 
+      logger.error(`Error updating comment ID ${commentId}: ${error.message}`, {
+        error,
         userId: context.session.userId,
         commentId,
-        contentLength: content?.length 
+        contentLength: content?.length,
       });
       throw new GraphQLError("Failed to update comment", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
@@ -883,14 +923,18 @@ export const templateMutations = {
       .prepare("SELECT id, user_id FROM template_comments WHERE id = ?")
       .get(commentId);
     if (!comment) {
-      logger.warn(`Delete attempted on non-existent comment: ID=${commentId}, User=${context.session.userId}`);
+      logger.warn(
+        `Delete attempted on non-existent comment: ID=${commentId}, User=${context.session.userId}`
+      );
       throw new GraphQLError("Comment not found", {
         extensions: { code: "NOT_FOUND" },
       });
       // return false; // Alternative
     }
     if (comment.user_id !== context.session.userId) {
-      logger.warn(`User attempted to delete another user's comment: Comment ID=${commentId}, Comment Owner=${comment.user_id}, Requesting User=${context.session.userId}`);
+      logger.warn(
+        `User attempted to delete another user's comment: Comment ID=${commentId}, Comment Owner=${comment.user_id}, Requesting User=${context.session.userId}`
+      );
       throw new GraphQLError("Not authorized to delete this comment", {
         extensions: { code: "FORBIDDEN" },
       });
@@ -901,13 +945,15 @@ export const templateMutations = {
       const result = db
         .prepare("DELETE FROM template_comments WHERE id = ?")
         .run(commentId);
-      logger.info(`Comment deleted: Comment ID=${commentId}, User=${context.session.userId}`);
+      logger.info(
+        `Comment deleted: Comment ID=${commentId}, User=${context.session.userId}`
+      );
       return result.changes > 0; // Return true if a row was deleted
     } catch (error) {
-      logger.error(`Error deleting comment ID ${commentId}: ${error.message}`, { 
-        error, 
+      logger.error(`Error deleting comment ID ${commentId}: ${error.message}`, {
+        error,
         userId: context.session.userId,
-        commentId 
+        commentId,
       });
       throw new GraphQLError("Failed to delete comment", {
         extensions: { code: "INTERNAL_SERVER_ERROR" },
@@ -931,21 +977,30 @@ export const templateTypeResolvers = {
      * @throws {GraphQLError} - If creator not found (data inconsistency)
      */
     creator: (template, _args, context) => {
-      // If creator_name was already fetched by parent (like allTemplates), use it
-      // Otherwise, fetch from DB. This avoids an N+1 query if parent fetched it.
+      // Fast path - if creator is directly available with the right format
+      // Don't log the fast path to avoid log clutter
+      if (template.creator?.id && template.creator?.username) {
+        return template.creator;
+      }
+
+      // Log non-optimized paths
       if (template.creator_name) {
-        // We still need the ID for other potential nested queries under User
-        // The parent query (allTemplates) already has template.user_id
-        logger.debug(`Using prefetched creator name for template ID: ${template.id}`);
+        logger.debug(
+          `Using prefetched creator name for template ID: ${template.id}`
+        );
         return { id: template.user_id, username: template.creator_name };
       }
-      // Fallback if parent didn't fetch creator_name (e.g., Query.template)
-      logger.debug(`Fetching creator for template ID (nested fallback): ${template.id}, User ID: ${template.user_id}`);
+
+      logger.debug(
+        `Fetching creator for template ID (fallback): ${template.id}, User ID: ${template.user_id}`
+      );
       const user = db
         .prepare("SELECT id, username FROM users WHERE id = ?")
         .get(template.user_id);
       if (!user) {
-        logger.error(`Inconsistency: Creator User ID ${template.user_id} not found for Template ID ${template.id}`);
+        logger.error(
+          `Inconsistency: Creator User ID ${template.user_id} not found for Template ID ${template.id}`
+        );
         throw new GraphQLError("Template creator not found", {
           extensions: { code: "INTERNAL_SERVER_ERROR" },
         });
@@ -980,7 +1035,9 @@ export const templateTypeResolvers = {
      * @returns {Array} - Array of comment objects
      */
     comments: (template, _args, context) => {
-      logger.debug(`Fetching comments for template ID (nested): ${template.id}`);
+      logger.debug(
+        `Fetching comments for template ID (nested): ${template.id}`
+      );
       const comments = db
         .prepare(
           "SELECT * FROM template_comments WHERE template_id = ? ORDER BY created_at DESC"
@@ -1001,14 +1058,18 @@ export const templateTypeResolvers = {
      * @throws {GraphQLError} - If template not found (data inconsistency)
      */
     template: (comment, _args, context) => {
-      logger.debug(`Fetching template for comment ID: ${comment.id}, Template ID: ${comment.template_id}`);
+      logger.debug(
+        `Fetching template for comment ID: ${comment.id}, Template ID: ${comment.template_id}`
+      );
       // Assuming template still exists; might return null if template was hard-deleted (we use soft delete)
       const template = db
         .prepare("SELECT * FROM calculator_templates WHERE id = ?")
         .get(comment.template_id);
       if (!template) {
         // This might happen if the template was hard-deleted, or data inconsistency
-        logger.warn(`Template ${comment.template_id} not found for comment ${comment.id}`);
+        logger.warn(
+          `Template ${comment.template_id} not found for comment ${comment.id}`
+        );
         throw new GraphQLError("Comment's parent template not found", {
           extensions: { code: "INTERNAL_SERVER_ERROR" },
         });
@@ -1026,12 +1087,16 @@ export const templateTypeResolvers = {
      * @throws {GraphQLError} - If author not found (data inconsistency)
      */
     author: (comment, _args, context) => {
-      logger.debug(`Fetching author for comment ID: ${comment.id}, User ID: ${comment.user_id}`);
+      logger.debug(
+        `Fetching author for comment ID: ${comment.id}, User ID: ${comment.user_id}`
+      );
       const user = db
         .prepare("SELECT id, username FROM users WHERE id = ?")
         .get(comment.user_id);
       if (!user) {
-        logger.error(`Inconsistency: Author User ID ${comment.user_id} not found for Comment ID ${comment.id}`);
+        logger.error(
+          `Inconsistency: Author User ID ${comment.user_id} not found for Comment ID ${comment.id}`
+        );
         throw new GraphQLError("Comment author not found", {
           extensions: { code: "INTERNAL_SERVER_ERROR" },
         });

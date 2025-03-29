@@ -10,21 +10,27 @@ import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
 
 // Import logger and create server-specific logger
-import logger, { createLogger } from "./utils/logger.js";
+import { createLogger } from "./utils/logger.js";
 const serverLogger = createLogger("server");
 const httpLogger = createLogger("http");
 
 // Import our new resolvers
 import resolvers from "./graphql/resolvers/index.js";
 
+// Get filename and dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 // Ensure logs directory exists
-const logsDir = join(dirname(fileURLToPath(import.meta.url)), "../logs");
+const logsDir = join(__dirname, "../logs");
 if (!existsSync(logsDir)) {
   try {
     mkdirSync(logsDir, { recursive: true });
     serverLogger.info(`Created logs directory at ${logsDir}`);
   } catch (error) {
-    serverLogger.error(`Failed to create logs directory: ${error.message}`, { error });
+    serverLogger.error(`Failed to create logs directory: ${error.message}`, {
+      error,
+    });
   }
 }
 
@@ -34,19 +40,16 @@ const result = dotenv.config();
 if (result.error) {
   // Try parent directory
   dotenv.config({
-    path: join(dirname(fileURLToPath(import.meta.url)), "../.env"),
+    path: join(__dirname, "../.env"),
   });
 }
 
-// Check if session secret is available
+// Enforce .env file with SESSION_SECRET is present as it is required in all environments
 if (!process.env.SESSION_SECRET) {
   serverLogger.error("SESSION_SECRET environment variable is not set");
   serverLogger.error("Please create an .env file with SESSION_SECRET");
   process.exit(1);
 }
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 // --- GraphQL Setup ---
 // Load schema from file
@@ -65,93 +68,128 @@ const apolloServer = new ApolloServer({
 const requestLogger = (req, res, next) => {
   const start = Date.now();
   const requestId = Math.random().toString(36).substring(2, 15);
-  
+
   // Log request start
   httpLogger.http(`${req.method} ${req.originalUrl}`, {
     requestId,
     ip: req.ip,
-    userAgent: req.get('user-agent')
+    userAgent: req.get("user-agent"),
   });
-  
+
   // Log response when finished
-  res.on('finish', () => {
+  res.on("finish", () => {
     const duration = Date.now() - start;
-    const logLevel = res.statusCode >= 400 ? 'warn' : 'http';
-    
-    httpLogger[logLevel](`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`, {
-      requestId,
-      statusCode: res.statusCode,
-      duration
-    });
+    const logLevel = res.statusCode >= 400 ? "warn" : "http";
+
+    httpLogger[logLevel](
+      `${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`,
+      {
+        requestId,
+        statusCode: res.statusCode,
+        duration,
+      }
+    );
   });
-  
+
   next();
 };
 
-// Start Apollo Server before applying middleware
-// Note: We need an async function to use await here
-async function startServer() {
-  await apolloServer.start();
-  serverLogger.info("Apollo GraphQL server started successfully");
+// Create Express app
+const app = express();
+const port = process.env.PORT || 3000;
 
-  const app = express();
-  const port = process.env.PORT || 3000;
+// Apply basic middleware immediately
+app.use(cors()); // Enable CORS - might be needed for GraphQL clients
+app.use(requestLogger); // Add request logging
+app.use(express.json());
+app.use(express.static("dist"));
 
-  // Middleware setup
-  app.use(cors()); // Enable CORS - might be needed for GraphQL clients
-  app.use(requestLogger); // Add request logging
-  app.use(express.json());
-  app.use(express.static("dist"));
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET,
-      resave: true,
-      saveUninitialized: true,
-      cookie: {
-        secure: process.env.NODE_ENV === "production", // Set secure based on environment
-        sameSite: true,
-        httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000,
-        path: "/",
-      },
-    })
-  );
-  serverLogger.debug("Express middleware configured");
+// Configure session middleware with appropriate settings for test/dev/prod
+const sessionOptions = {
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production", // Set secure based on environment
+    sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+  },
+};
 
-  // Apply Apollo GraphQL middleware here, after session middleware
-  // We pass the session info into the context for potential use in resolvers
-  app.use(
-    "/graphql",
-    expressMiddleware(apolloServer, {
-      context: async ({ req }) => ({ req, session: req.session }),
-    })
-  );
-  serverLogger.debug("Apollo GraphQL middleware applied");
+// Allow testing by ensuring cookies are sent with supertest
+if (process.env.NODE_ENV === "test") {
+  // In test environments, make sure cookies work with supertest
+  sessionOptions.resave = true;
+  sessionOptions.saveUninitialized = true;
+  sessionOptions.cookie.sameSite = false;
+}
 
-  // Client-side routing handler (must be after API routes)
-  app.get("*", (_req, res) => {
-    res.sendFile(join(__dirname, "../dist/index.html"));
-  });
+app.use(session(sessionOptions));
+serverLogger.debug("Express middleware configured");
 
-  // Export the app for testing (if needed, adjust for async start)
-  // We might need to adjust testing setup later due to async start
-  // export { app }; // Commenting out for now as app creation is inside async function
+// Start Apollo Server immediately (rather than waiting for startServer to be called)
+// This ensures GraphQL middleware is available as soon as the module is loaded
+let isServerStarted = false;
+let startPromise;
 
-  // Only start the server if this file is being run directly
-  if (process.argv[1] === fileURLToPath(import.meta.url)) {
-    app.listen(port, () => {
-      serverLogger.info(`Server running at http://localhost:${port}`);
-      serverLogger.info(`GraphQL endpoint available at http://localhost:${port}/graphql`);
-      serverLogger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+// Initialize the Apollo server once at module load time
+const initApolloServer = async () => {
+  if (!isServerStarted) {
+    await apolloServer.start();
+
+    // Apply GraphQL middleware immediately
+    app.use(
+      "/graphql",
+      expressMiddleware(apolloServer, {
+        context: async ({ req }) => ({ req, session: req.session }),
+      })
+    );
+
+    isServerStarted = true;
+    serverLogger.info("Apollo GraphQL server started successfully");
+    serverLogger.debug("Apollo GraphQL middleware applied");
+
+    // Client-side routing handler (must be after API routes)
+    app.get("*", (_req, res) => {
+      res.sendFile(join(__dirname, "../dist/index.html"));
     });
   }
+  return app;
+};
 
-  // Return app for potential programmatic use/testing if needed outside this direct run
+// Start the initialization immediately
+startPromise = initApolloServer();
+
+// This function now just ensures the initialization is complete
+async function startServer() {
+  await startPromise;
   return app;
 }
 
-// Start the server
-startServer().catch((error) => {
-  serverLogger.error(`Failed to start server: ${error.message}`, { error });
-  process.exit(1);
-});
+// Export the necessary functions and objects for testing
+export { app, startServer };
+
+// Only start the HTTP server if this file is being run directly (not imported for testing)
+// Check if we're NOT in test mode and we haven't set a variable to disable auto-start
+if (
+  process.env.NODE_ENV !== "test" &&
+  process.env.DISABLE_AUTO_START !== "true"
+) {
+  startServer()
+    .then((configuredApp) => {
+      configuredApp.listen(port, () => {
+        serverLogger.info(`Server running at http://localhost:${port}`);
+        serverLogger.info(
+          `GraphQL endpoint available at http://localhost:${port}/graphql`
+        );
+        serverLogger.info(
+          `Environment: ${process.env.NODE_ENV || "development"}`
+        );
+      });
+    })
+    .catch((error) => {
+      serverLogger.error(`Failed to start server: ${error.message}`, { error });
+      process.exit(1);
+    });
+}
