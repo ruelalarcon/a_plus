@@ -189,9 +189,9 @@
       <Button variant="destructive" on:click={deleteCalculator}
         >Delete Calculator</Button
       >
-      <Button variant="outline" asChild>
-        <Link to="/">Back to Dashboard</Link>
-      </Button>
+      <Link to="/">
+        <Button variant="outline">Back to Dashboard</Button>
+      </Link>
     </div>
   </header>
 

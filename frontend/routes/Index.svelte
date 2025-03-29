@@ -32,12 +32,12 @@
       </CardHeader>
       <CardContent>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button asChild>
-            <Link to="/login">Login</Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link to="/register">Register</Link>
-          </Button>
+          <Link to="/login" class="w-full sm:w-auto">
+            <Button class="w-full">Login</Button>
+          </Link>
+          <Link to="/register" class="w-full sm:w-auto">
+            <Button variant="outline" class="w-full">Register</Button>
+          </Link>
         </div>
       </CardContent>
     </Card>

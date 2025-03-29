@@ -110,9 +110,9 @@
             </CardHeader>
             <CardContent>
               <div class="flex justify-between items-center w-full">
-                <Button variant="default" class="w-full" asChild>
-                  <Link to={`/calculator/${calc.id}`}>Open Calculator</Link>
-                </Button>
+                <Link to={`/calculator/${calc.id}`} class="w-full">
+                  <Button variant="default" class="w-full">Open Calculator</Button>
+                </Link>
                 <div class="flex gap-2 ml-2">
                   <Button
                     variant="outline"
@@ -143,8 +143,8 @@
 
   <div class="flex flex-col sm:flex-row gap-4 sm:gap-2 justify-center">
     <Button on:click={createNewCalculator}>Create New Calculator</Button>
-    <Button variant="outline" asChild>
-      <Link to="/search">Search Templates</Link>
-    </Button>
+    <Link to="/search" class="sm:flex">
+      <Button variant="outline" class="w-full">Search Templates</Button>
+    </Link>
   </div>
 </section>
