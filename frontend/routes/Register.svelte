@@ -1,137 +1,156 @@
 <script>
-    import { navigate, Link } from 'svelte-routing';
-    import * as authApi from '../lib/api/auth.js';
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { Label } from "$lib/components/ui/label";
+  import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+  } from "$lib/components/ui/card";
+  import { toast, Toaster } from "svelte-sonner";
+  import { navigate, Link } from "svelte-routing";
+  import { mutate } from "../lib/graphql/client.js";
+  import { REGISTER } from "../lib/graphql/mutations.js";
 
-    let password = '';
-    let confirmPassword = '';
-    let passwordError = '';
+  let password = "";
+  let confirmPassword = "";
+  let passwordError = "";
 
-    function validatePasswords() {
-        if (password !== confirmPassword) {
-            passwordError = 'Passwords do not match';
-            return false;
-        }
-        if (password.length < 6) {
-            passwordError = 'Password must be at least 6 characters long';
-            return false;
-        }
-        passwordError = '';
-        return true;
+  function validatePasswords() {
+    if (password !== confirmPassword) {
+      passwordError = "Passwords do not match";
+      return false;
+    }
+    if (password.length < 6) {
+      passwordError = "Password must be at least 6 characters long";
+      return false;
+    }
+    passwordError = "";
+    return true;
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!validatePasswords()) {
+      toast.error("Password validation failed", {
+        description: passwordError,
+        action: {
+          label: "Try Again",
+          onClick: () => {
+            password = "";
+            confirmPassword = "";
+          },
+        },
+      });
+      return;
     }
 
-    async function handleSubmit(e) {
-        e.preventDefault();
-        if (!validatePasswords()) return;
+    const formData = new FormData(e.target);
+    const username = formData.get("username");
 
-        const formData = new FormData(e.target);
-        const response = await authApi.register(
-            formData.get('username'),
-            password
-        );
+    try {
+      const data = await mutate(REGISTER, {
+        username,
+        password,
+      });
 
-        if (response.ok) {
-            navigate('/login', { replace: true });
-        } else {
-            alert('Registration failed');
-        }
+      if (data.register) {
+        toast.success("Registration successful!", {
+          description:
+            "Your account has been created. Please log in to continue.",
+          action: {
+            label: "Log In",
+            onClick: () => navigate("/login", { replace: true }),
+          },
+        });
+        navigate("/login", { replace: true });
+      } else {
+        toast.error("Registration failed", {
+          description: "Unable to register with the provided details.",
+          action: {
+            label: "Try Again",
+            onClick: () => {
+              e.target.reset();
+              password = "";
+              confirmPassword = "";
+            },
+          },
+        });
+      }
+    } catch (error) {
+      toast.error("Registration failed", {
+        description:
+          error.graphQLErrors?.[0]?.message ||
+          "Unable to connect to the server. Please try again.",
+        action: {
+          label: "Try Again",
+          onClick: () => {
+            e.target.reset();
+            password = "";
+            confirmPassword = "";
+          },
+        },
+      });
     }
+  }
 </script>
 
+<Toaster />
+
 <main class="register-page">
-    <header>
-        <h1>Register</h1>
-    </header>
-
-    <section class="register-form-container">
-        <form on:submit={handleSubmit}>
-            <div class="form-group">
-                <label for="username">Username</label>
-                <input
-                    type="text"
-                    id="username"
-                    name="username"
-                    placeholder="Username"
-                    required
-                    autocomplete="username"
-                />
-            </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input
-                    type="password"
-                    id="password"
-                    bind:value={password}
-                    placeholder="Password"
-                    required
-                    autocomplete="new-password"
-                />
-            </div>
-            <div class="form-group">
-                <label for="confirm-password">Confirm Password</label>
-                <input
-                    type="password"
-                    id="confirm-password"
-                    bind:value={confirmPassword}
-                    placeholder="Confirm Password"
-                    required
-                    autocomplete="new-password"
-                />
-            </div>
-            {#if passwordError}
-                <div class="error">
-                    {passwordError}
-                </div>
-            {/if}
-            <div class="form-actions">
-                <button type="submit">Register</button>
-            </div>
-        </form>
-    </section>
-
-    <footer class="register-footer">
-        <p>
-            Already have an account? <Link to="/login">Log in</Link>
-        </p>
-    </footer>
+  <Card class="w-full max-w-md mx-auto">
+    <CardHeader>
+      <CardTitle>Register</CardTitle>
+      <CardDescription>Create a new account to get started</CardDescription>
+    </CardHeader>
+    <CardContent>
+      <form on:submit={handleSubmit} class="space-y-4">
+        <div class="space-y-2">
+          <Label for="username">Username</Label>
+          <Input
+            type="text"
+            id="username"
+            name="username"
+            placeholder="Choose a username"
+            required
+            autocomplete="username"
+          />
+        </div>
+        <div class="space-y-2">
+          <Label for="password">Password</Label>
+          <Input
+            type="password"
+            id="password"
+            bind:value={password}
+            placeholder="Create a password"
+            required
+            autocomplete="new-password"
+          />
+        </div>
+        <div class="space-y-2">
+          <Label for="confirm-password">Confirm Password</Label>
+          <Input
+            type="password"
+            id="confirm-password"
+            bind:value={confirmPassword}
+            placeholder="Confirm your password"
+            required
+            autocomplete="new-password"
+          />
+        </div>
+        <Button type="submit" class="w-full">Register</Button>
+      </form>
+    </CardContent>
+    <CardFooter class="flex justify-center">
+      <p class="text-sm text-muted-foreground">
+        Already have an account? <Link
+          to="/login"
+          class="text-primary hover:underline">Log in</Link
+        >
+      </p>
+    </CardFooter>
+  </Card>
 </main>
-
-<style>
-    .register-page {
-        max-width: 400px;
-        margin: 40px auto;
-        padding: 20px;
-    }
-
-    .form-group {
-        margin: 20px 0;
-    }
-
-    .form-group label {
-        display: block;
-        margin-bottom: 5px;
-    }
-
-    .form-group input {
-        width: 100%;
-        padding: 8px;
-        box-sizing: border-box;
-    }
-
-    .form-actions {
-        margin-top: 20px;
-    }
-
-    .register-footer {
-        margin-top: 20px;
-        text-align: center;
-    }
-
-    .error {
-        color: red;
-        margin: 10px 0;
-        padding: 10px;
-        border: 1px solid red;
-        border-radius: 4px;
-        background-color: #fff5f5;
-    }
-</style>

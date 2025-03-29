@@ -1,349 +1,351 @@
 <script>
-    import { onMount } from 'svelte';
-    import * as courseApi from '../lib/api/courses.js';
+  import { onMount } from "svelte";
+  import { query, mutate } from "../lib/graphql/client.js";
+  import { MY_COURSES } from "../lib/graphql/queries.js";
+  import {
+    CREATE_COURSE,
+    UPDATE_COURSE,
+    DELETE_COURSE,
+  } from "../lib/graphql/mutations.js";
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { Label } from "$lib/components/ui/label";
+  import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+  } from "$lib/components/ui/card";
+  import { Checkbox } from "$lib/components/ui/checkbox";
 
-    let courses = [];
-    let newCourseName = '';
-    let selectedPrereqs = [];
-    let editingCourse = null;
-    let editingPrereqs = [];
+  let courses = [];
+  let newCourseName = "";
+  let selectedPrereqs = [];
+  let editingCourse = null;
+  let editingPrereqs = [];
 
-    onMount(async () => {
-        await loadCourses();
-    });
+  onMount(async () => {
+    await loadCourses();
+  });
 
-    async function loadCourses() {
-        try {
-            courses = await courseApi.getCourses();
-        } catch (error) {
-            console.error('Error loading courses:', error);
+  async function loadCourses() {
+    try {
+      const data = await query(MY_COURSES);
+      courses = data.myCourses;
+    } catch (error) {
+      console.error("Error loading courses:", error);
+    }
+  }
+
+  async function addCourse() {
+    try {
+      if (!newCourseName || newCourseName.trim() === "") {
+        return;
+      }
+
+      const result = await mutate(CREATE_COURSE, {
+        name: newCourseName,
+        prerequisiteIds: selectedPrereqs.length > 0 ? selectedPrereqs : null,
+      });
+
+      if (result && result.createCourse) {
+        courses = [...courses, result.createCourse];
+        newCourseName = "";
+        selectedPrereqs = [];
+      } else {
+        console.error("Invalid response format:", result);
+      }
+    } catch (error) {
+      console.error("Error adding course:", error);
+    }
+  }
+
+  async function toggleComplete(course) {
+    try {
+      const data = await mutate(UPDATE_COURSE, {
+        id: course.id,
+        completed: !course.completed,
+      });
+
+      courses = courses.map((c) =>
+        c.id === data.updateCourse.id ? data.updateCourse : c
+      );
+    } catch (error) {
+      console.error("Error toggling course completion:", error);
+    }
+  }
+
+  function startEdit(course) {
+    editingCourse = { ...course };
+    editingPrereqs = course.prerequisites.map((p) => p.id);
+  }
+
+  function cancelEdit() {
+    editingCourse = null;
+    editingPrereqs = [];
+  }
+
+  async function saveEdit(course) {
+    if (!editingCourse.name.trim()) return;
+
+    try {
+      const data = await mutate(UPDATE_COURSE, {
+        id: course.id,
+        name: editingCourse.name.trim(),
+        prerequisiteIds: editingPrereqs,
+      });
+
+      if (data.updateCourse) {
+        courses = courses.map((c) =>
+          c.id === data.updateCourse.id ? data.updateCourse : c
+        );
+        cancelEdit();
+      }
+    } catch (error) {
+      console.error("Error saving course edit:", error);
+      alert("Failed to save course changes");
+    }
+  }
+
+  async function deleteCourse(course) {
+    if (!confirm(`Are you sure you want to delete "${course.name}"?`)) return;
+
+    try {
+      const data = await mutate(DELETE_COURSE, { id: course.id });
+
+      if (data.deleteCourse) {
+        courses = courses
+          .filter((c) => c.id !== course.id)
+          .map((c) => ({
+            ...c,
+            prerequisites: c.prerequisites.filter((p) => p.id !== course.id),
+          }));
+
+        selectedPrereqs = selectedPrereqs.filter((id) => id !== course.id);
+        if (editingCourse) {
+          editingPrereqs = editingPrereqs.filter((id) => id !== course.id);
         }
+      }
+    } catch (error) {
+      console.error("Error deleting course:", error);
+      alert("Failed to delete course");
+    }
+  }
+
+  // Compute course levels based on prerequisites
+  // This creates a directed acyclic graph (DAG) of courses
+  // where each level contains courses that depend on previous levels
+  $: sortedCourses = (() => {
+    const levels = [];
+    const visited = new Set();
+    const courseMap = new Map(courses.map((c) => [c.id, c]));
+
+    // Recursive function to determine course level based on prerequisites
+    function getLevel(course) {
+      if (visited.has(course.id)) return;
+      visited.add(course.id);
+
+      // Find the maximum level of all prerequisites
+      let maxPrereqLevel = -1;
+      for (const prereq of course.prerequisites) {
+        if (!visited.has(prereq.id)) {
+          getLevel(courseMap.get(prereq.id));
+        }
+        const prereqLevel = levels.findIndex((level) =>
+          level.some((c) => c.id === prereq.id)
+        );
+        maxPrereqLevel = Math.max(maxPrereqLevel, prereqLevel);
+      }
+
+      // Place course in next level after its highest prerequisite
+      const courseLevel = maxPrereqLevel + 1;
+      if (!levels[courseLevel]) {
+        levels[courseLevel] = [];
+      }
+      levels[courseLevel].push(course);
     }
 
-    async function addCourse() {
-        if (!newCourseName.trim()) return;
-
-        try {
-            const newCourse = await courseApi.createCourse(newCourseName.trim(), selectedPrereqs);
-            courses = [...courses, newCourse];
-            newCourseName = '';
-            selectedPrereqs = [];
-        } catch (error) {
-            console.error('Error adding course:', error);
-            alert('Failed to add course');
-        }
+    // Process all courses to build the level structure
+    for (const course of courses) {
+      if (!visited.has(course.id)) {
+        getLevel(course);
+      }
     }
 
-    async function toggleComplete(course) {
-        const newStatus = course.completed ? 0 : 1;
-        try {
-            const updatedCourse = await courseApi.updateCourse(course.id, { completed: newStatus });
-            courses = courses.map(c =>
-                c.id === updatedCourse.id ? updatedCourse : c
-            );
-        } catch (error) {
-            console.error('Error toggling course completion:', error);
-            alert('Failed to update course status');
-        }
-    }
-
-    function startEdit(course) {
-        editingCourse = { ...course };
-        editingPrereqs = course.prerequisites.map(p => p.id);
-    }
-
-    function cancelEdit() {
-        editingCourse = null;
-        editingPrereqs = [];
-    }
-
-    async function saveEdit(course) {
-        if (!editingCourse.name.trim()) return;
-
-        try {
-            const updatedCourse = await courseApi.updateCourse(course.id, {
-                name: editingCourse.name.trim(),
-                prerequisiteIds: editingPrereqs
-            });
-            courses = courses.map(c =>
-                c.id === updatedCourse.id ? updatedCourse : c
-            );
-            cancelEdit();
-        } catch (error) {
-            console.error('Error saving course edit:', error);
-            alert('Failed to save course changes');
-        }
-    }
-
-    async function deleteCourse(course) {
-        if (!confirm(`Are you sure you want to delete "${course.name}"?`)) return;
-
-        try {
-            await courseApi.deleteCourse(course.id);
-            courses = courses
-                .filter(c => c.id !== course.id)
-                .map(c => ({
-                    ...c,
-                    prerequisites: c.prerequisites.filter(p => p.id !== course.id)
-                }));
-
-            selectedPrereqs = selectedPrereqs.filter(id => id !== course.id);
-            if (editingCourse) {
-                editingPrereqs = editingPrereqs.filter(id => id !== course.id);
-            }
-        } catch (error) {
-            console.error('Error deleting course:', error);
-            alert('Failed to delete course');
-        }
-    }
-
-    // Compute course levels based on prerequisites
-    // This creates a directed acyclic graph (DAG) of courses
-    // where each level contains courses that depend on previous levels
-    $: sortedCourses = (() => {
-        const levels = [];
-        const visited = new Set();
-        const courseMap = new Map(courses.map(c => [c.id, c]));
-
-        // Recursive function to determine course level based on prerequisites
-        function getLevel(course) {
-            if (visited.has(course.id)) return;
-            visited.add(course.id);
-
-            // Find the maximum level of all prerequisites
-            let maxPrereqLevel = -1;
-            for (const prereq of course.prerequisites) {
-                if (!visited.has(prereq.id)) {
-                    getLevel(courseMap.get(prereq.id));
-                }
-                const prereqLevel = levels.findIndex(level =>
-                    level.some(c => c.id === prereq.id)
-                );
-                maxPrereqLevel = Math.max(maxPrereqLevel, prereqLevel);
-            }
-
-            // Place course in next level after its highest prerequisite
-            const courseLevel = maxPrereqLevel + 1;
-            if (!levels[courseLevel]) {
-                levels[courseLevel] = [];
-            }
-            levels[courseLevel].push(course);
-        }
-
-        // Process all courses to build the level structure
-        for (const course of courses) {
-            if (!visited.has(course.id)) {
-                getLevel(course);
-            }
-        }
-
-        return levels;
-    })();
+    return levels;
+  })();
 </script>
 
-<section class="course-tracker">
-    <header>
-        <h2>Course Tracker</h2>
-    </header>
+<section class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h2 class="text-3xl font-bold tracking-tight">Course Tracker</h2>
+  </div>
 
-    <form class="add-course" onsubmit="return false;">
-        <div class="form-group">
-            <label for="new-course">Course Name</label>
-            <input
-                type="text"
-                id="new-course"
-                bind:value={newCourseName}
-                placeholder="Enter course name"
-                on:keydown={e => e.key === 'Enter' && addCourse()}
-            />
+  <Card>
+    <CardHeader>
+      <CardTitle>Add New Course</CardTitle>
+      <CardDescription
+        >Add a new course and specify any prerequisites</CardDescription
+      >
+    </CardHeader>
+    <CardContent>
+      <form class="space-y-4" onsubmit="return false;">
+        <div class="space-y-2">
+          <Label for="new-course">Course Name</Label>
+          <Input
+            type="text"
+            id="new-course"
+            bind:value={newCourseName}
+            placeholder="Enter course name"
+            on:keydown={(e) => e.key === "Enter" && addCourse()}
+          />
         </div>
 
         {#if courses.length > 0}
-            <fieldset class="prerequisites-select">
-                <legend>Prerequisites</legend>
-                {#each courses as course}
-                    <div class="checkbox-group">
-                        <input
-                            type="checkbox"
-                            id={`prereq-${course.id}`}
-                            bind:group={selectedPrereqs}
-                            value={course.id}
-                        />
-                        <label for={`prereq-${course.id}`}>{course.name}</label>
-                    </div>
-                {/each}
-            </fieldset>
+          <div class="space-y-2">
+            <Label>Prerequisites</Label>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {#each courses as course}
+                <div class="flex items-center space-x-2">
+                  <Checkbox
+                    id={`prereq-${course.id}`}
+                    checked={selectedPrereqs.includes(course.id)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        selectedPrereqs = [...selectedPrereqs, course.id];
+                      } else {
+                        selectedPrereqs = selectedPrereqs.filter(
+                          (id) => id !== course.id
+                        );
+                      }
+                    }}
+                  />
+                  <Label for={`prereq-${course.id}`} class="cursor-pointer"
+                    >{course.name}</Label
+                  >
+                </div>
+              {/each}
+            </div>
+          </div>
         {/if}
-        <button type="button" on:click={addCourse}>
-            Add Course
-        </button>
-    </form>
+      </form>
+    </CardContent>
+    <CardFooter>
+      <Button on:click={addCourse}>Add Course</Button>
+    </CardFooter>
+  </Card>
 
-    {#if courses.length > 0}
-        <div class="course-list">
-            {#each sortedCourses as level}
-                <section class="course-level">
-                    {#each level as course}
-                        <article class="course-item" class:completed={course.completed}>
-                            {#if editingCourse?.id === course.id}
-                                <form class="edit-course">
-                                    <div class="form-group">
-                                        <label for={`edit-course-${course.id}`}>Course Name</label>
-                                        <input
-                                            type="text"
-                                            id={`edit-course-${course.id}`}
-                                            bind:value={editingCourse.name}
-                                            placeholder="Course name"
-                                        />
-                                    </div>
-                                    <fieldset class="prerequisites-select">
-                                        <legend>Prerequisites</legend>
-                                        {#each courses.filter(c => c.id !== course.id) as prereq}
-                                            <div class="checkbox-group">
-                                                <input
-                                                    type="checkbox"
-                                                    id={`edit-prereq-${course.id}-${prereq.id}`}
-                                                    bind:group={editingPrereqs}
-                                                    value={prereq.id}
-                                                />
-                                                <label for={`edit-prereq-${course.id}-${prereq.id}`}>
-                                                    {prereq.name}
-                                                </label>
-                                            </div>
-                                        {/each}
-                                    </fieldset>
-                                    <nav class="edit-actions">
-                                        <button type="button" on:click={() => saveEdit(course)}>Save</button>
-                                        <button type="button" on:click={cancelEdit}>Cancel</button>
-                                    </nav>
-                                </form>
-                            {:else}
-                                <div class="course-content">
-                                    <div class="course-header">
-                                        <input
-                                            type="checkbox"
-                                            id={`complete-${course.id}`}
-                                            checked={course.completed}
-                                            on:change={() => toggleComplete(course)}
-                                        />
-                                        <label for={`complete-${course.id}`} class="course-name">
-                                            {course.name}
-                                        </label>
-                                    </div>
-                                    {#if course.prerequisites.length > 0}
-                                        <div class="prerequisites">
-                                            Prerequisites: {course.prerequisites.map(p => p.name).join(', ')}
-                                        </div>
-                                    {/if}
-                                    <nav class="course-actions">
-                                        <button on:click={() => startEdit(course)}>Edit</button>
-                                        <button on:click={() => deleteCourse(course)}>Delete</button>
-                                    </nav>
-                                </div>
-                            {/if}
-                        </article>
-                    {/each}
-                </section>
-            {/each}
+  {#if courses.length > 0}
+    <div class="space-y-4">
+      {#each sortedCourses as level}
+        <div class="space-y-2">
+          {#each level as course}
+            <Card class={course.completed ? "bg-muted" : ""}>
+              {#if editingCourse?.id === course.id}
+                <CardContent class="p-4">
+                  <form class="space-y-4">
+                    <div class="space-y-2">
+                      <Label for={`edit-course-${course.id}`}>Course Name</Label
+                      >
+                      <Input
+                        type="text"
+                        id={`edit-course-${course.id}`}
+                        bind:value={editingCourse.name}
+                        placeholder="Course name"
+                      />
+                    </div>
+
+                    <div class="space-y-2">
+                      <Label>Prerequisites</Label>
+                      <div
+                        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"
+                      >
+                        {#each courses.filter((c) => c.id !== course.id) as prereq}
+                          <div class="flex items-center space-x-2">
+                            <Checkbox
+                              id={`edit-prereq-${course.id}-${prereq.id}`}
+                              checked={editingPrereqs.includes(prereq.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  editingPrereqs = [
+                                    ...editingPrereqs,
+                                    prereq.id,
+                                  ];
+                                } else {
+                                  editingPrereqs = editingPrereqs.filter(
+                                    (id) => id !== prereq.id
+                                  );
+                                }
+                              }}
+                            />
+                            <Label
+                              for={`edit-prereq-${course.id}-${prereq.id}`}
+                              class="cursor-pointer"
+                            >
+                              {prereq.name}
+                            </Label>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+
+                    <div class="flex justify-end gap-2">
+                      <Button variant="outline" on:click={cancelEdit}
+                        >Cancel</Button
+                      >
+                      <Button on:click={() => saveEdit(course)}>Save</Button>
+                    </div>
+                  </form>
+                </CardContent>
+              {:else}
+                <CardContent class="p-4">
+                  <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-2">
+                      <Checkbox
+                        id={`complete-${course.id}`}
+                        checked={course.completed}
+                        onCheckedChange={(checked) => toggleComplete(course)}
+                      />
+                      <Label
+                        for={`complete-${course.id}`}
+                        class="text-lg font-medium cursor-pointer"
+                      >
+                        {course.name}
+                      </Label>
+                    </div>
+                    <div class="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        on:click={() => startEdit(course)}>Edit</Button
+                      >
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        on:click={() => deleteCourse(course)}>Delete</Button
+                      >
+                    </div>
+                  </div>
+
+                  {#if course.prerequisites.length > 0}
+                    <div class="mt-2 text-sm text-muted-foreground">
+                      Prerequisites: {course.prerequisites
+                        .map((p) => p.name)
+                        .join(", ")}
+                    </div>
+                  {/if}
+                </CardContent>
+              {/if}
+            </Card>
+          {/each}
         </div>
-    {:else}
-        <p>No courses added yet.</p>
-    {/if}
+      {/each}
+    </div>
+  {:else}
+    <div class="text-center py-10">
+      <p class="text-muted-foreground">No courses added yet.</p>
+    </div>
+  {/if}
 </section>
-
-<style>
-    .add-course {
-        margin: 20px 0;
-    }
-
-    .prerequisites-select {
-        margin: 10px 0;
-    }
-
-    .prerequisites-select label {
-        display: block;
-        margin: 5px 0;
-    }
-
-    .course-list {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-    }
-
-    .course-level {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .course-item {
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        padding: 10px;
-    }
-
-    .course-content {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .course-name {
-        flex-grow: 1;
-    }
-
-    .prerequisites {
-        margin: 5px 0;
-    }
-
-    .course-actions {
-        display: flex;
-        gap: 5px;
-    }
-
-    .edit-course {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .edit-actions {
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-    }
-
-    .checkbox-group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 5px 0;
-    }
-
-    .prerequisites-select {
-        border: 1px solid #ccc;
-        padding: 10px;
-        margin: 10px 0;
-        border-radius: 4px;
-    }
-
-    .prerequisites-select legend {
-        padding: 0 5px;
-    }
-
-    .form-group {
-        margin: 10px 0;
-    }
-
-    .form-group label {
-        display: block;
-        margin-bottom: 5px;
-    }
-
-    .course-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-</style>

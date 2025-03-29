@@ -1,228 +1,233 @@
 <script>
-    import { navigate } from 'svelte-routing';
-    import debounce from 'lodash/debounce';
-    import Comments from '../components/Comments.svelte';
-    import Card from '../components/Card.svelte';
-    import VoteButtons from '../components/VoteButtons.svelte';
-    import * as templateApi from '../lib/api/templates.js';
+  import { navigate } from "svelte-routing";
+  import debounce from "lodash/debounce";
+  import Comments from "../components/Comments.svelte";
+  import VoteButtons from "../components/VoteButtons.svelte";
+  import { query, mutate } from "../lib/graphql/client.js";
+  import { ALL_TEMPLATES } from "../lib/graphql/queries.js";
+  import { USE_TEMPLATE } from "../lib/graphql/mutations.js";
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { Label } from "$lib/components/ui/label";
+  import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+  } from "$lib/components/ui/card";
 
-    let searchQuery = '';
-    let term = '';
-    let year = '';
-    let institution = '';
-    let templates = [];
-    let currentPage = 1;
-    let totalPages = 1;
-    let totalResults = 0;
-    const ITEMS_PER_PAGE = 2;
-    let activeComments = null;
+  let searchQuery = "";
+  let term = "";
+  let year = "";
+  let institution = "";
+  let templates = [];
+  let currentPage = 1;
+  let totalPages = 1;
+  let totalResults = 0;
+  const ITEMS_PER_PAGE = 10;
+  let activeComments = null;
 
-    const debouncedSearch = debounce(async () => {
-        try {
-            const data = await templateApi.searchTemplates(
-                searchQuery,
-                term,
-                year,
-                institution,
-                currentPage,
-                ITEMS_PER_PAGE
-            );
-            templates = data.templates;
-            totalResults = data.total;
-            totalPages = Math.ceil(totalResults / ITEMS_PER_PAGE);
-        } catch (error) {
-            console.error('Error searching templates:', error);
-        }
-    }, 300);
+  const debouncedSearch = debounce(async () => {
+    try {
+      // Convert year to number if it's not empty
+      const yearNum = year ? parseInt(year) : undefined;
 
-    function handleSearch() {
-        currentPage = 1;  // Reset to first page on new search
-        debouncedSearch();
+      const data = await query(ALL_TEMPLATES, {
+        query: searchQuery || undefined,
+        term: term || undefined,
+        year: yearNum,
+        institution: institution || undefined,
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+      });
+
+      templates = data.allTemplates.templates;
+      totalResults = data.allTemplates.total;
+      totalPages = Math.ceil(totalResults / ITEMS_PER_PAGE);
+    } catch (error) {
+      console.error("Error searching templates:", error);
     }
+  }, 300);
 
-    function changePage(newPage) {
-        currentPage = newPage;
-        debouncedSearch();
-    }
-
-    async function useTemplate(templateId) {
-        try {
-            const { id: calculatorId } = await templateApi.useTemplate(templateId);
-            navigate(`/calculator/${calculatorId}`);
-        } catch (error) {
-            console.error('Error using template:', error);
-            alert('Failed to use template');
-        }
-    }
-
-    function toggleComments(templateId) {
-        activeComments = activeComments === templateId ? null : templateId;
-    }
-
-    // Initial search on mount
+  function handleSearch() {
+    currentPage = 1; // Reset to first page on new search
     debouncedSearch();
+  }
+
+  function changePage(newPage) {
+    currentPage = newPage;
+    debouncedSearch();
+  }
+
+  async function useTemplate(templateId) {
+    try {
+      const data = await mutate(USE_TEMPLATE, { templateId });
+      if (data.useTemplate) {
+        navigate(`/calculator/${data.useTemplate.id}`);
+      } else {
+        console.error("Failed to use template");
+      }
+    } catch (error) {
+      console.error("Error using template:", error);
+      alert("Failed to use template");
+    }
+  }
+
+  function toggleComments(templateId) {
+    activeComments = activeComments === templateId ? null : templateId;
+  }
+
+  // Initial search on mount
+  debouncedSearch();
 </script>
 
-<main class="container">
-    <header class="page-header">
-        <h1>Search Calculator Templates</h1>
-    </header>
+<main class="container mx-auto px-4 py-8">
+  <header class="mb-8">
+    <h1 class="text-3xl font-bold tracking-tight">
+      Search Calculator Templates
+    </h1>
+  </header>
 
-    <section class="search-section">
-        <form class="search-form" onsubmit="return false;">
-            <div class="form-group">
-                <label for="search-query">Search Templates</label>
-                <input
-                    type="search"
-                    id="search-query"
-                    bind:value={searchQuery}
-                    placeholder="Search by name..."
-                    on:input={handleSearch}
-                />
-            </div>
+  <Card class="mb-8">
+    <CardHeader>
+      <CardTitle>Search Filters</CardTitle>
+      <CardDescription
+        >Find the perfect grade calculator template for your needs</CardDescription
+      >
+    </CardHeader>
+    <CardContent>
+      <form
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+        onsubmit="return false;"
+      >
+        <div class="space-y-2">
+          <Label for="search-query">Search Templates</Label>
+          <Input
+            type="search"
+            id="search-query"
+            bind:value={searchQuery}
+            placeholder="Search by name..."
+            on:input={handleSearch}
+          />
+        </div>
 
-            <div class="form-group">
-                <label for="term">Term</label>
-                <input
-                    type="text"
-                    id="term"
-                    bind:value={term}
-                    placeholder="Term (e.g. Fall, Spring)"
-                    on:input={handleSearch}
-                />
-            </div>
+        <div class="space-y-2">
+          <Label for="term">Term</Label>
+          <Input
+            type="text"
+            id="term"
+            bind:value={term}
+            placeholder="Term (e.g. Fall, Spring)"
+            on:input={handleSearch}
+          />
+        </div>
 
-            <div class="form-group">
-                <label for="year">Year</label>
-                <input
-                    type="number"
-                    id="year"
-                    bind:value={year}
-                    placeholder="Year"
-                    on:input={handleSearch}
-                />
-            </div>
+        <div class="space-y-2">
+          <Label for="year">Year</Label>
+          <Input
+            type="number"
+            id="year"
+            bind:value={year}
+            placeholder="Year"
+            on:input={handleSearch}
+          />
+        </div>
 
-            <div class="form-group">
-                <label for="institution">Institution</label>
-                <input
-                    type="text"
-                    id="institution"
-                    bind:value={institution}
-                    placeholder="Institution"
-                    on:input={handleSearch}
-                />
-            </div>
-        </form>
-    </section>
+        <div class="space-y-2">
+          <Label for="institution">Institution</Label>
+          <Input
+            type="text"
+            id="institution"
+            bind:value={institution}
+            placeholder="Institution"
+            on:input={handleSearch}
+          />
+        </div>
+      </form>
+    </CardContent>
+  </Card>
 
-    <section class="results">
-        {#if templates.length > 0}
-            <div class="template-grid">
-                {#each templates as template}
-                    <div>
-                        <Card
-                            title={template.name}
-                            details={[
-                                `${template.institution} - ${template.term} ${template.year}`,
-                                `Created by ${template.creator_name}`
-                            ]}
-                            extraContent={activeComments === template.id}
-                        >
-                            <nav slot="actions">
-                                <VoteButtons
-                                    voteCount={template.vote_count}
-                                    userVote={template.user_vote}
-                                    creatorId={template.user_id}
-                                    templateId={template.id}
-                                />
-                                <div class="action-buttons">
-                                    <button on:click={() => useTemplate(template.id)}>
-                                        Use Template
-                                    </button>
-                                    <button on:click={() => toggleComments(template.id)}>
-                                        {activeComments === template.id ? 'Hide' : 'Show'} Comments
-                                    </button>
-                                </div>
-                            </nav>
-                            <div slot="extra">
-                                <Comments templateId={template.id} />
-                            </div>
-                        </Card>
-                    </div>
-                {/each}
-            </div>
+  <section class="space-y-6">
+    {#if templates.length > 0}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {#each templates as template}
+          <div>
+            <Card class="w-full">
+              <CardHeader>
+                <CardTitle>{template.name}</CardTitle>
+                <CardDescription>
+                  <p>
+                    {template.institution} - {template.term}
+                    {template.year}
+                  </p>
+                  <p>Created by {template.creator.username}</p>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div class="flex justify-between items-center mb-3">
+                  <VoteButtons
+                    voteCount={template.vote_count}
+                    userVote={template.user_vote}
+                    creatorId={template.creator.id}
+                    templateId={template.id}
+                  />
 
-            <nav class="pagination">
-                {#if currentPage > 1}
-                    <button on:click={() => changePage(currentPage - 1)}>
-                        Previous
-                    </button>
-                {/if}
-                <span>Page {currentPage} of {totalPages}</span>
-                {#if currentPage < totalPages}
-                    <button on:click={() => changePage(currentPage + 1)}>
-                        Next
-                    </button>
-                {/if}
-            </nav>
-        {:else}
-            <p>No templates found matching your search.</p>
-        {/if}
-    </section>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    on:click={() => useTemplate(template.id)}
+                  >
+                    Use Template
+                  </Button>
+                </div>
+
+                <div class="flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    on:click={() => toggleComments(template.id)}
+                  >
+                    {activeComments === template.id ? "Hide" : "Show"} Comments
+                  </Button>
+                </div>
+              </CardContent>
+              {#if activeComments === template.id}
+                <CardFooter>
+                  <Comments templateId={template.id} />
+                </CardFooter>
+              {/if}
+            </Card>
+          </div>
+        {/each}
+      </div>
+
+      <div class="flex justify-center items-center gap-4">
+        <Button
+          variant="outline"
+          on:click={() => changePage(currentPage - 1)}
+          disabled={currentPage <= 1}
+        >
+          Previous
+        </Button>
+        <span class="text-sm text-muted-foreground">
+          Page {currentPage} of {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          on:click={() => changePage(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+        >
+          Next
+        </Button>
+      </div>
+    {:else}
+      <div class="text-center py-10">
+        <p class="text-muted-foreground">
+          No templates found matching your search.
+        </p>
+      </div>
+    {/if}
+  </section>
 </main>
-
-<style>
-    .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-
-    .page-header {
-        margin-bottom: 20px;
-    }
-
-    .search-form {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 10px;
-        margin-bottom: 20px;
-    }
-
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-    }
-
-    .form-group label {
-        font-weight: 500;
-    }
-
-    .form-group input {
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-    }
-
-    .template-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 20px;
-        margin-bottom: 20px;
-    }
-
-    .action-buttons {
-        display: flex;
-        gap: 10px;
-    }
-
-    .pagination {
-        display: flex;
-        justify-content: center;
-        gap: 20px;
-        margin-top: 20px;
-        align-items: center;
-    }
-</style>

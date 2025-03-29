@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "$lib": ["./frontend/shadcn"],
+      "$lib/*": ["./frontend/shadcn/*"]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "frontend/shadcn",
+    "frontend/node_modules"
+  ]
+}

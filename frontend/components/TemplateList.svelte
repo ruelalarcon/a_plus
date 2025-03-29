@@ -1,107 +1,139 @@
 <script>
-    import Card from './Card.svelte';
-    import VoteButtons from './VoteButtons.svelte';
-    import Comments from './Comments.svelte';
-    import { onMount } from 'svelte';
-    import * as templateApi from '../lib/api/templates.js';
+  import VoteButtons from "./VoteButtons.svelte";
+  import Comments from "./Comments.svelte";
+  import { onMount } from "svelte";
+  import { query, mutate } from "../lib/graphql/client.js";
+  import { MY_TEMPLATES } from "../lib/graphql/queries.js";
+  import { DELETE_TEMPLATE } from "../lib/graphql/mutations.js";
+  import { userId } from "../lib/stores.js";
+  import { Button } from "$lib/components/ui/button";
+  import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+  } from "$lib/components/ui/card";
+  import { Toaster, toast } from "svelte-sonner";
 
-    let templates = [];
-    let activeComments = null;
+  let templates = [];
+  let activeComments = null;
 
-    onMount(async () => {
-        await loadTemplates();
-    });
+  onMount(async () => {
+    await loadTemplates();
+  });
 
-    async function loadTemplates() {
-        try {
-            templates = await templateApi.getUserTemplates();
-        } catch (error) {
-            console.error('Error loading templates:', error);
-        }
+  async function loadTemplates() {
+    try {
+      const data = await query(MY_TEMPLATES);
+      templates = data.myTemplates || [];
+    } catch (error) {
+      console.error("Error loading templates:", error);
+      toast.error("Failed to load templates");
+    }
+  }
+
+  async function deleteTemplate(id, name) {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${name}"? The template will be hidden from search but existing copies will remain.`
+      )
+    ) {
+      return;
     }
 
-    async function deleteTemplate(id, name) {
-        if (!confirm(`Are you sure you want to delete "${name}"? The template will be hidden from search but existing copies will remain.`)) {
-            return;
-        }
-
-        try {
-            await templateApi.deleteTemplate(id);
-            templates = templates.filter(t => t.id !== id);
-        } catch (error) {
-            console.error('Error deleting template:', error);
-            alert('Failed to delete template');
-        }
+    try {
+      const data = await mutate(DELETE_TEMPLATE, { id });
+      if (data.deleteTemplate) {
+        templates = templates.filter((t) => t.id !== id);
+        toast.success("Template deleted successfully");
+      } else {
+        toast.error("Failed to delete template");
+      }
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      toast.error("Failed to delete template");
     }
+  }
 
-    function toggleComments(templateId) {
-        activeComments = activeComments === templateId ? null : templateId;
-    }
+  function toggleComments(templateId) {
+    activeComments = activeComments === templateId ? null : templateId;
+  }
 
-    function copyShareLink(templateId) {
-        const url = `${window.location.origin}/template/${templateId}`;
-        navigator.clipboard.writeText(url);
-        alert('Share link copied to clipboard!');
-    }
+  function copyShareLink(templateId) {
+    const url = `${window.location.origin}/template/${templateId}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Share link copied to clipboard!");
+  }
 </script>
 
-<section class="published-templates">
-    <header>
-        <h2>My Published Templates</h2>
-    </header>
+<section class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h2 class="text-3xl font-bold tracking-tight">My Published Templates</h2>
+  </div>
 
-    {#if templates.length > 0}
-        <div class="template-grid">
-            {#each templates as template}
-                <div>
-                    <Card
-                        title={template.name}
-                        details={[
-                            `${template.institution} - ${template.term} ${template.year}`,
-                            `Created by ${template.creator_name}`
-                        ]}
-                        extraContent={activeComments === template.id}
-                    >
-                        <nav slot="actions">
-                            <VoteButtons
-                                voteCount={template.vote_count}
-                                userVote={template.user_vote}
-                                creatorId={template.user_id}
-                                templateId={template.id}
-                            />
-                            <div class="action-buttons">
-                                <button on:click={() => copyShareLink(template.id)}>
-                                    Share URL
-                                </button>
-                                <button on:click={() => toggleComments(template.id)}>
-                                    {activeComments === template.id ? 'Hide' : 'Show'} Comments
-                                </button>
-                                <button on:click={() => deleteTemplate(template.id, template.name)}>
-                                    Delete
-                                </button>
-                            </div>
-                        </nav>
-                        <div slot="extra">
-                            <Comments templateId={template.id} />
-                        </div>
-                    </Card>
-                </div>
-            {/each}
+  {#if templates.length > 0}
+    <Toaster />
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {#each templates as template}
+        <div>
+          <Card class="w-full">
+            <CardHeader>
+              <CardTitle>{template.name}</CardTitle>
+              <CardDescription>
+                <p>{template.institution} - {template.term} {template.year}</p>
+                <p>Created by {template.creator?.username}</p>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div class="flex justify-between items-center mb-3">
+                <VoteButtons
+                  voteCount={template.vote_count}
+                  userVote={template.user_vote}
+                  creatorId={$userId}
+                  templateId={template.id}
+                />
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  on:click={() => copyShareLink(template.id)}
+                >
+                  Share URL
+                </Button>
+              </div>
+
+              <div class="flex justify-between">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  on:click={() => toggleComments(template.id)}
+                >
+                  {activeComments === template.id ? "Hide" : "Show"} Comments
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  on:click={() => deleteTemplate(template.id, template.name)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </CardContent>
+            {#if activeComments === template.id}
+              <CardFooter>
+                <Comments templateId={template.id} />
+              </CardFooter>
+            {/if}
+          </Card>
         </div>
-    {:else}
-        <p>No published templates yet.</p>
-    {/if}
+      {/each}
+    </div>
+  {:else}
+    <div class="text-center py-10">
+      <p class="text-muted-foreground">No published templates yet.</p>
+    </div>
+  {/if}
 </section>
-
-<style>
-    .template-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 20px;
-    }
-
-    .action-buttons {
-        display: flex;
-        gap: 10px;
-    }
-</style>

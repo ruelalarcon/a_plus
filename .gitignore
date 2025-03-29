@@ -7,3 +7,4 @@ package-lock.json
 out/
 *.plantuml
 *.description
+*.timestamp-*.mjs

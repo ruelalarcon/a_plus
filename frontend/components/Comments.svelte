@@ -1,141 +1,188 @@
 <script>
-	import { userId } from '../lib/stores.js';
-	import * as templateApi from '../lib/api/templates.js';
+  import { userId } from "../lib/stores.js";
+  import { Button } from "$lib/components/ui/button";
+  import { Textarea } from "$lib/components/ui/textarea";
+  import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+  } from "$lib/components/ui/card";
+  import { Separator } from "$lib/components/ui/separator";
+  import { query, mutate } from "../lib/graphql/client.js";
+  import { TEMPLATE_COMMENTS } from "../lib/graphql/queries.js";
+  import {
+    ADD_TEMPLATE_COMMENT,
+    UPDATE_TEMPLATE_COMMENT,
+    DELETE_TEMPLATE_COMMENT,
+  } from "../lib/graphql/mutations.js";
 
-	export let templateId;
+  export let templateId;
 
-	let comments = [];
-	let newComment = '';
-	let editingComment = null;
+  let comments = [];
+  let newComment = "";
+  let editingComment = null;
 
-	async function loadComments() {
-		try {
-			comments = await templateApi.getTemplateComments(templateId);
-		} catch (error) {
-			console.error('Error loading comments:', error);
-		}
-	}
+  async function loadComments() {
+    try {
+      const data = await query(TEMPLATE_COMMENTS, { templateId });
+      comments = data.templateComments;
+    } catch (error) {
+      console.error("Error loading comments:", error);
+    }
+  }
 
-	async function submitComment() {
-		if (!newComment.trim()) return;
+  async function submitComment() {
+    if (!newComment.trim()) return;
 
-		try {
-			const comment = await templateApi.addTemplateComment(templateId, newComment);
-			comments = [comment, ...comments];
-			newComment = '';
-		} catch (error) {
-			console.error('Error submitting comment:', error);
-			alert('Failed to submit comment');
-		}
-	}
+    try {
+      const data = await mutate(ADD_TEMPLATE_COMMENT, {
+        templateId,
+        content: newComment.trim(),
+      });
 
-	async function deleteComment(commentId) {
-		if (!confirm('Are you sure you want to delete this comment?')) return;
+      if (data.addTemplateComment) {
+        comments = [data.addTemplateComment, ...comments];
+        newComment = "";
+      }
+    } catch (error) {
+      console.error("Error submitting comment:", error);
+      alert("Failed to submit comment");
+    }
+  }
 
-		try {
-			await templateApi.deleteTemplateComment(templateId, commentId);
-			comments = comments.filter(c => c.id !== commentId);
-		} catch (error) {
-			console.error('Error deleting comment:', error);
-			alert('Failed to delete comment');
-		}
-	}
+  async function deleteComment(commentId) {
+    if (!confirm("Are you sure you want to delete this comment?")) return;
 
-	function startEdit(comment) {
-		editingComment = { ...comment };
-	}
+    try {
+      const data = await mutate(DELETE_TEMPLATE_COMMENT, { commentId });
+      if (data.deleteTemplateComment) {
+        comments = comments.filter((c) => c.id !== commentId);
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      alert("Failed to delete comment");
+    }
+  }
 
-	function cancelEdit() {
-		editingComment = null;
-	}
+  function startEdit(comment) {
+    editingComment = { ...comment };
+  }
 
-	async function saveEdit(comment) {
-		if (!editingComment.content.trim() || editingComment.content === comment.content) {
-			cancelEdit();
-			return;
-		}
+  function cancelEdit() {
+    editingComment = null;
+  }
 
-		try {
-			const updatedComment = await templateApi.updateTemplateComment(templateId, comment.id, editingComment.content);
-			comments = comments.map(c =>
-				c.id === comment.id ? updatedComment : c
-			);
-			editingComment = null;
-		} catch (error) {
-			console.error('Error saving comment:', error);
-			alert('Failed to save comment');
-		}
-	}
+  async function saveEdit(comment) {
+    if (
+      !editingComment.content.trim() ||
+      editingComment.content === comment.content
+    ) {
+      cancelEdit();
+      return;
+    }
 
-	// Load comments when component mounts
-	loadComments();
+    try {
+      const data = await mutate(UPDATE_TEMPLATE_COMMENT, {
+        commentId: comment.id,
+        content: editingComment.content.trim(),
+      });
+
+      if (data.updateTemplateComment) {
+        comments = comments.map((c) =>
+          c.id === comment.id ? data.updateTemplateComment : c
+        );
+        editingComment = null;
+      } else {
+        console.error("Error response from API");
+        alert("Failed to save comment: Unknown error");
+      }
+    } catch (error) {
+      console.error("Error saving comment:", error);
+      alert("Failed to save comment");
+    }
+  }
+
+  // Load comments when component mounts
+  loadComments();
 </script>
 
-<section>
-	<header>
-		<h3>Comments</h3>
-	</header>
+<Card class="w-full">
+  <CardHeader>
+    <CardTitle>Comments</CardTitle>
+  </CardHeader>
 
-	<form>
-		<textarea
-			bind:value={newComment}
-			placeholder="Add a comment..."
-			rows="3"
-		></textarea>
-		<footer>
-			<button type="button" on:click={submitComment}>Post Comment</button>
-		</footer>
-	</form>
+  <CardContent>
+    <div class="space-y-4">
+      <form class="space-y-4">
+        <Textarea
+          bind:value={newComment}
+          placeholder="Add a comment..."
+          rows="3"
+        />
+        <div class="flex justify-end">
+          <Button type="button" on:click={submitComment}>Post Comment</Button>
+        </div>
+      </form>
 
-	{#if comments.length > 0}
-		<ul class="comment-list">
-			{#each comments as comment}
-				<li class="comment">
-					<article>
-						<header>
-							<strong>{comment.username}</strong>
-							<time datetime={comment.created_at}>
-								{new Date(comment.created_at).toLocaleDateString()}
-							</time>
-							{#if comment.user_id === $userId}
-								<nav>
-									{#if editingComment?.id === comment.id}
-										<button on:click={() => saveEdit(comment)}>Save</button>
-										<button on:click={cancelEdit}>Cancel</button>
-									{:else}
-										<button on:click={() => startEdit(comment)}>Edit</button>
-										<button on:click={() => deleteComment(comment.id)}>Delete</button>
-									{/if}
-								</nav>
-							{/if}
-						</header>
-						{#if editingComment?.id === comment.id}
-							<textarea
-								bind:value={editingComment.content}
-								rows="3"
-							></textarea>
-						{:else}
-							<p>{comment.content}</p>
-						{/if}
-					</article>
-				</li>
-			{/each}
-		</ul>
-	{:else}
-		<p>No comments yet. Be the first to comment!</p>
-	{/if}
-</section>
+      {#if comments.length > 0}
+        <div class="space-y-4">
+          {#each comments as comment}
+            <div class="comment">
+              <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                  <strong>{comment.author.username}</strong>
+                  <span class="text-sm text-muted-foreground">
+                    {new Date(comment.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                {#if comment.author.id === $userId}
+                  <div class="flex gap-2">
+                    {#if editingComment?.id === comment.id}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        on:click={() => saveEdit(comment)}>Save</Button
+                      >
+                      <Button variant="outline" size="sm" on:click={cancelEdit}
+                        >Cancel</Button
+                      >
+                    {:else}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        on:click={() => startEdit(comment)}>Edit</Button
+                      >
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        on:click={() => deleteComment(comment.id)}
+                        >Delete</Button
+                      >
+                    {/if}
+                  </div>
+                {/if}
+              </div>
 
-<style>
-	textarea {
-		width: 100%;
-		max-width: 100%;
-		box-sizing: border-box;
-	}
+              {#if editingComment?.id === comment.id}
+                <div class="mt-2">
+                  <Textarea bind:value={editingComment.content} rows="3" />
+                </div>
+              {:else}
+                <p class="mt-2">{comment.content}</p>
+              {/if}
 
-	.comment {
-		border-bottom: 1px solid black;
-		margin: 10px 0;
-		padding: 10px 0;
-	}
-</style>
+              <Separator class="mt-4" />
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <p class="text-center text-muted-foreground">
+          No comments yet. Be the first to comment!
+        </p>
+      {/if}
+    </div>
+  </CardContent>
+</Card>
