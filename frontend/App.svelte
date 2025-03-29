@@ -13,8 +13,10 @@
   import Login from "./routes/Login.svelte";
   import Register from "./routes/Register.svelte";
   import Index from "./routes/Index.svelte";
-  import Dashboard from "./routes/Dashboard.svelte";
-  import GradeCalculator from "./routes/GradeCalculator.svelte";
+  import Calculators from "./routes/Calculators.svelte";
+  import Courses from "./routes/Courses.svelte";
+  import Templates from "./routes/Templates.svelte";
+  import Calculator from "./routes/Calculator.svelte";
   import Search from "./routes/Search.svelte";
   import TemplatePreview from "./routes/TemplatePreview.svelte";
 
@@ -54,7 +56,7 @@
     {#if !isLoading}
       <Route path="/">
         {#if $userId}
-          <Dashboard />
+          <Calculators />
         {:else}
           <Index />
         {/if}
@@ -65,9 +67,19 @@
       <Route path="/register">
         <Register />
       </Route>
+      <Route path="/courses">
+        {#if $userId}
+          <Courses />
+        {/if}
+      </Route>
+      <Route path="/templates">
+        {#if $userId}
+          <Templates />
+        {/if}
+      </Route>
       <Route path="/calculator/:id" let:params>
         {#if $userId}
-          <GradeCalculator id={params.id} />
+          <Calculator id={params.id} />
         {/if}
       </Route>
       <Route path="/search">

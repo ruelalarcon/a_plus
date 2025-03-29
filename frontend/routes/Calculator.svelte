@@ -190,7 +190,7 @@
         >Delete Calculator</Button
       >
       <Link to="/">
-        <Button variant="outline">Back to Dashboard</Button>
+        <Button variant="outline">Back to Calculators</Button>
       </Link>
     </div>
   </header>
