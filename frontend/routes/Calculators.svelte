@@ -1,5 +1,5 @@
 <script>
-  import { username, logout } from "../lib/stores.js";
+  import { username, userId, logout } from "../lib/stores.js";
   import { Link } from "svelte-routing";
   import { navigate } from "svelte-routing";
   import { onMount } from "svelte";
@@ -14,7 +14,7 @@
     CardTitle,
   } from "$lib/components/ui/card";
   import { query, mutate } from "../lib/graphql/client.js";
-  import { MY_CALCULATORS } from "../lib/graphql/queries.js";
+  import { USER_CALCULATORS } from "../lib/graphql/queries.js";
   import {
     CREATE_CALCULATOR,
     UPDATE_CALCULATOR,
@@ -24,13 +24,15 @@
   let calculators = [];
 
   onMount(async () => {
-    await loadCalculators();
+    if ($userId) {
+      await loadCalculators();
+    }
   });
 
   async function loadCalculators() {
     try {
-      const data = await query(MY_CALCULATORS);
-      calculators = data.myCalculators;
+      const data = await query(USER_CALCULATORS, { userId: $userId });
+      calculators = data.user.calculators;
     } catch (error) {
       console.error("Error loading calculators:", error);
     }

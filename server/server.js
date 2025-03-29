@@ -66,6 +66,14 @@ const apolloServer = new ApolloServer({
 
 // HTTP request logging middleware
 const requestLogger = (req, res, next) => {
+  // Skip logging in test environment unless explicitly enabled
+  if (
+    process.env.NODE_ENV === "test" &&
+    process.env.ENABLE_TEST_LOGS !== "true"
+  ) {
+    return next();
+  }
+
   const start = Date.now();
   const requestId = Math.random().toString(36).substring(2, 15);
 

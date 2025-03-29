@@ -66,7 +66,7 @@
     try {
       const data = await mutate(UPDATE_CALCULATOR, {
         id,
-        min_desired_grade: calculator.min_desired_grade
+        minDesiredGrade: calculator.min_desired_grade
           ? parseFloat(calculator.min_desired_grade)
           : null,
         assessments: assessments.map((assessment) => ({

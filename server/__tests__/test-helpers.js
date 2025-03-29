@@ -201,7 +201,7 @@ export async function createTestTemplate(cookies, templateData = {}) {
  */
 export async function createTestCourse(
   cookies,
-  courseData = { name: "Test Course" }
+  courseData = { name: "Test Course", credits: 3.0 }
 ) {
   if (!cookies || !Array.isArray(cookies) || cookies.length === 0) {
     throw new Error("Invalid authentication cookies provided");
@@ -215,10 +215,11 @@ export async function createTestCourse(
     .set("Cookie", cookies)
     .send({
       query: `
-        mutation CreateCourse($name: String!, $prerequisiteIds: [ID!]) {
-          createCourse(name: $name, prerequisiteIds: $prerequisiteIds) {
+        mutation CreateCourse($name: String!, $credits: Float!, $prerequisiteIds: [ID!]) {
+          createCourse(name: $name, credits: $credits, prerequisiteIds: $prerequisiteIds) {
             id
             name
+            credits
             completed
             user {
               id

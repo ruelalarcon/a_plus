@@ -106,6 +106,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,        -- Course owner
     name TEXT NOT NULL,              -- Course name
+    credits DECIMAL(5,2) NOT NULL,   -- Credit amount for the course
     completed BOOLEAN DEFAULT 0,     -- Track completion status
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)

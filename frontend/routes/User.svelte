@@ -1,13 +1,9 @@
 <script>
-  import { username, logout } from "../lib/stores.js";
+  import { onMount } from "svelte";
   import VoteButtons from "../components/VoteButtons.svelte";
   import Comments from "../components/Comments.svelte";
-  import { onMount } from "svelte";
-  import { query, mutate } from "../lib/graphql/client.js";
-  import { USER_TEMPLATES } from "../lib/graphql/queries.js";
-  import { DELETE_TEMPLATE } from "../lib/graphql/mutations.js";
-  import { userId } from "../lib/stores.js";
-  import { Button } from "$lib/components/ui/button";
+  import { query } from "../lib/graphql/client.js";
+  import { USER_TEMPLATES, USER_COMMENTS } from "../lib/graphql/queries.js";
   import {
     Card,
     CardContent,
@@ -16,55 +12,38 @@
     CardHeader,
     CardTitle,
   } from "$lib/components/ui/card";
+  import { Button } from "$lib/components/ui/button";
   import { Toaster, toast } from "svelte-sonner";
 
+  export let id; // User ID from route params
+
+  let user = null;
   let templates = [];
+  let comments = [];
   let activeComments = null;
 
-  // Subscribe to userId changes to load templates when it becomes available
-  $: if ($userId) {
-    loadTemplates();
-  }
-
   onMount(async () => {
-    if ($userId) {
-      await loadTemplates();
-    }
+    await Promise.all([loadUserTemplates(), loadUserComments()]);
   });
 
-  async function loadTemplates() {
-    if (!$userId) return;
-
+  async function loadUserTemplates() {
     try {
-      const data = await query(USER_TEMPLATES, { id: $userId });
-      templates = data.user?.templates || [];
-      console.log("Loaded templates:", templates.length);
+      const data = await query(USER_TEMPLATES, { id });
+      user = data.user;
+      templates = user?.templates || [];
     } catch (error) {
-      console.error("Error loading templates:", error);
-      toast.error("Failed to load templates");
+      console.error("Error loading user templates:", error);
+      toast.error("Failed to load user templates");
     }
   }
 
-  async function deleteTemplate(id, name) {
-    if (
-      !confirm(
-        `Are you sure you want to delete "${name}"? The template will be hidden from search but existing copies will remain.`
-      )
-    ) {
-      return;
-    }
-
+  async function loadUserComments() {
     try {
-      const data = await mutate(DELETE_TEMPLATE, { id });
-      if (data.deleteTemplate) {
-        templates = templates.filter((t) => t.id !== id);
-        toast.success("Template deleted successfully");
-      } else {
-        toast.error("Failed to delete template");
-      }
+      const data = await query(USER_COMMENTS, { userId: id });
+      comments = data.user?.comments || [];
     } catch (error) {
-      console.error("Error deleting template:", error);
-      toast.error("Failed to delete template");
+      console.error("Error loading user comments:", error);
+      toast.error("Failed to load user comments");
     }
   }
 
@@ -77,25 +56,35 @@
     navigator.clipboard.writeText(url);
     toast.success("Share link copied to clipboard!");
   }
+
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  }
 </script>
 
 <main class="container mx-auto px-4 py-8">
-  <header
-    class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8"
-  >
-    <div>
-      <h1 class="text-3xl font-bold tracking-tight">My Published Templates</h1>
-      <p class="text-muted-foreground">
-        Welcome back, <strong>{$username}</strong>
-      </p>
-    </div>
-    <Button variant="outline" on:click={logout}>Logout</Button>
+  <Toaster />
+
+  <header class="mb-8">
+    {#if user}
+      <h1 class="text-3xl font-bold tracking-tight">
+        {user.username}'s Profile
+      </h1>
+    {:else}
+      <h1 class="text-3xl font-bold tracking-tight">User Profile</h1>
+    {/if}
   </header>
 
   <div class="space-y-8">
-    <section class="space-y-6">
+    <section>
+      <h2 class="text-2xl font-semibold tracking-tight mb-4">Templates</h2>
+
       {#if templates.length > 0}
-        <Toaster />
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {#each templates as template}
             <div>
@@ -115,7 +104,7 @@
                     <VoteButtons
                       voteCount={template.vote_count}
                       userVote={template.user_vote}
-                      creatorId={$userId}
+                      creatorId={template.creator?.id}
                       templateId={template.id}
                     />
 
@@ -128,22 +117,13 @@
                     </Button>
                   </div>
 
-                  <div class="flex justify-between">
+                  <div class="flex justify-center">
                     <Button
                       variant="outline"
                       size="sm"
                       on:click={() => toggleComments(template.id)}
                     >
                       {activeComments === template.id ? "Hide" : "Show"} Comments
-                    </Button>
-
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      on:click={() =>
-                        deleteTemplate(template.id, template.name)}
-                    >
-                      Delete
                     </Button>
                   </div>
                 </CardContent>
@@ -159,6 +139,38 @@
       {:else}
         <div class="text-center py-10">
           <p class="text-muted-foreground">No published templates yet.</p>
+        </div>
+      {/if}
+    </section>
+
+    <section>
+      <h2 class="text-2xl font-semibold tracking-tight mb-4">Comments</h2>
+
+      {#if comments.length > 0}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {#each comments as comment}
+            <Card class="w-full">
+              <CardHeader>
+                <CardTitle class="text-base"
+                  >Comment on <a
+                    href={`/template/${comment.template.id}`}
+                    class="text-primary hover:underline"
+                    >{comment.template.name}</a
+                  ></CardTitle
+                >
+                <CardDescription>
+                  <p>{formatDate(comment.created_at)}</p>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p class="whitespace-pre-wrap">{comment.content}</p>
+              </CardContent>
+            </Card>
+          {/each}
+        </div>
+      {:else}
+        <div class="text-center py-10">
+          <p class="text-muted-foreground">No comments yet.</p>
         </div>
       {/if}
     </section>

@@ -15,16 +15,20 @@ beforeAll(async () => {
 /**
  * Helper function to create a test course using GraphQL
  */
-async function createCourse(cookies, data = { name: "Test Course" }) {
+async function createCourse(
+  cookies,
+  data = { name: "Test Course", credits: 3.0 }
+) {
   const response = await request
     .post("/graphql")
     .set("Cookie", cookies)
     .send({
       query: `
-        mutation CreateCourse($name: String!, $prerequisiteIds: [ID!]) {
-          createCourse(name: $name, prerequisiteIds: $prerequisiteIds) {
+        mutation CreateCourse($name: String!, $credits: Float!, $prerequisiteIds: [ID!]) {
+          createCourse(name: $name, credits: $credits, prerequisiteIds: $prerequisiteIds) {
             id
             name
+            credits
             completed
             prerequisites {
               id
@@ -54,43 +58,18 @@ describe("Courses API", () => {
     authCookies = await createAuthenticatedUser("courseuser_" + Date.now());
   });
 
-  describe("GraphQL myCourses query", () => {
-    it("should return empty array when no courses exist", async () => {
-      const response = await request
-        .post("/graphql")
-        .set("Cookie", authCookies)
-        .send({
-          query: `
-            query {
-              myCourses {
-                id
-                name
-                completed
-                prerequisites {
-                  id
-                  name
-                }
-              }
-            }
-          `,
-        });
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body.data.myCourses)).toBe(true);
-      expect(response.body.data.myCourses.length).toBe(0);
-    });
-
-    it("should return courses for authenticated user", async () => {
+  describe("GraphQL course query", () => {
+    it("should return a course by ID", async () => {
       // Create a course first
-      await createCourse(authCookies);
+      const course = await createCourse(authCookies);
 
       const response = await request
         .post("/graphql")
         .set("Cookie", authCookies)
         .send({
           query: `
-            query {
-              myCourses {
+            query GetCourse($id: ID!) {
+              course(id: $id) {
                 id
                 name
                 completed
@@ -101,33 +80,63 @@ describe("Courses API", () => {
               }
             }
           `,
+          variables: { id: course.id },
         });
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body.data.myCourses)).toBe(true);
-      expect(response.body.data.myCourses.length).toBe(1);
-      expect(response.body.data.myCourses[0]).toHaveProperty(
-        "name",
-        "Test Course"
-      );
-      expect(response.body.data.myCourses[0]).toHaveProperty("prerequisites");
+      expect(response.body.data.course).toHaveProperty("id", course.id);
+      expect(response.body.data.course).toHaveProperty("name", course.name);
     });
 
-    it("should require authentication", async () => {
-      const response = await request.post("/graphql").send({
-        query: `
-          query {
-            myCourses {
-              id
-              name
+    it("should throw error when course doesn't exist", async () => {
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            query GetCourse($id: ID!) {
+              course(id: $id) {
+                id
+                name
+              }
             }
-          }
-        `,
-      });
+          `,
+          variables: { id: 999 },
+        });
 
       expect(response.status).toBe(200);
       expect(response.body.errors).toBeDefined();
-      expect(response.body.errors[0].message).toContain("Not authenticated");
+      expect(response.body.errors[0].message).toContain("Course not found");
+    });
+
+    it("should throw error when trying to access another user's course", async () => {
+      // Create a course with the first user
+      const course = await createCourse(authCookies);
+
+      // Create a second user
+      const secondUserCookies = await createAuthenticatedUser(
+        "courseuser2_" + Date.now()
+      );
+
+      // Try to access the course with the second user
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", secondUserCookies)
+        .send({
+          query: `
+            query GetCourse($id: ID!) {
+              course(id: $id) {
+                id
+                name
+              }
+            }
+          `,
+          variables: { id: course.id },
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+      expect(response.body.errors[0].message).toContain("Not authorized");
     });
   });
 
@@ -135,6 +144,7 @@ describe("Courses API", () => {
     it("should create a new course", async () => {
       const courseData = {
         name: "New Course",
+        credits: 3.0,
       };
 
       const response = await request
@@ -142,10 +152,11 @@ describe("Courses API", () => {
         .set("Cookie", authCookies)
         .send({
           query: `
-            mutation CreateCourse($name: String!) {
-              createCourse(name: $name) {
+            mutation CreateCourse($name: String!, $credits: Float!) {
+              createCourse(name: $name, credits: $credits) {
                 id
                 name
+                credits
                 completed
                 prerequisites {
                   id
@@ -163,6 +174,7 @@ describe("Courses API", () => {
         "name",
         courseData.name
       );
+      expect(response.body.data.createCourse).toHaveProperty("credits", 3.0);
       expect(response.body.data.createCourse).toHaveProperty("prerequisites");
       expect(response.body.data.createCourse.prerequisites).toEqual([]);
     });
@@ -171,13 +183,16 @@ describe("Courses API", () => {
       // Create prerequisites first
       const prereq1 = await createCourse(authCookies, {
         name: "Prerequisite 1",
+        credits: 3.0,
       });
       const prereq2 = await createCourse(authCookies, {
         name: "Prerequisite 2",
+        credits: 3.0,
       });
 
       const courseData = {
         name: "Advanced Course",
+        credits: 4.0,
         prerequisiteIds: [prereq1.id, prereq2.id],
       };
 
@@ -186,10 +201,11 @@ describe("Courses API", () => {
         .set("Cookie", authCookies)
         .send({
           query: `
-            mutation CreateCourse($name: String!, $prerequisiteIds: [ID!]) {
-              createCourse(name: $name, prerequisiteIds: $prerequisiteIds) {
+            mutation CreateCourse($name: String!, $credits: Float!, $prerequisiteIds: [ID!]) {
+              createCourse(name: $name, credits: $credits, prerequisiteIds: $prerequisiteIds) {
                 id
                 name
+                credits
                 prerequisites {
                   id
                   name
@@ -269,6 +285,7 @@ describe("Courses API", () => {
       // Create a prerequisite
       const prereq = await createCourse(authCookies, {
         name: "Prerequisite Course",
+        credits: 3.0,
       });
 
       const response = await request
@@ -328,22 +345,30 @@ describe("Courses API", () => {
         .set("Cookie", authCookies)
         .send({
           query: `
-            query {
-              myCourses {
+            query GetCourse($id: ID!) {
+              course(id: $id) {
                 id
                 name
               }
             }
           `,
+          variables: { id: course.id },
         });
 
-      expect(getResponse.body.data.myCourses.length).toBe(0);
+      expect(getResponse.body.errors).toBeDefined();
+      expect(getResponse.body.errors[0].message).toContain("Course not found");
     });
 
     it("should delete prerequisites when course is deleted", async () => {
       // Create two courses
-      const course1 = await createCourse(authCookies, { name: "Course 1" });
-      const course2 = await createCourse(authCookies, { name: "Course 2" });
+      const course1 = await createCourse(authCookies, {
+        name: "Course 1",
+        credits: 3.0,
+      });
+      const course2 = await createCourse(authCookies, {
+        name: "Course 2",
+        credits: 4.0,
+      });
 
       // Make course2 depend on course1
       await request
@@ -376,19 +401,22 @@ describe("Courses API", () => {
           variables: { id: course1.id },
         });
 
-      // Get course2 and verify it no longer has prerequisites
+      // Get course2 via user.courses query
       const getResponse = await request
         .post("/graphql")
         .set("Cookie", authCookies)
         .send({
           query: `
             query {
-              myCourses {
+              me {
                 id
-                name
-                prerequisites {
+                courses {
                   id
                   name
+                  prerequisites {
+                    id
+                    name
+                  }
                 }
               }
             }
@@ -396,8 +424,8 @@ describe("Courses API", () => {
         });
 
       // Only course2 should remain
-      expect(getResponse.body.data.myCourses.length).toBe(1);
-      expect(getResponse.body.data.myCourses[0].prerequisites.length).toBe(0);
+      expect(getResponse.body.data.me.courses.length).toBe(1);
+      expect(getResponse.body.data.me.courses[0].prerequisites.length).toBe(0);
     });
   });
 });

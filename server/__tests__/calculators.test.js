@@ -59,45 +59,18 @@ describe("Calculators API", () => {
     authCookies = await createAuthenticatedUser("calcuser_" + Date.now());
   });
 
-  describe("GraphQL myCalculators query", () => {
-    it("should return empty array when no calculators exist", async () => {
-      const response = await request
-        .post("/graphql")
-        .set("Cookie", authCookies)
-        .send({
-          query: `
-            query {
-              myCalculators {
-                id
-                name
-                min_desired_grade
-                assessments {
-                  id
-                  name
-                  weight
-                  grade
-                }
-              }
-            }
-          `,
-        });
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body.data.myCalculators)).toBe(true);
-      expect(response.body.data.myCalculators.length).toBe(0);
-    });
-
-    it("should return calculators for authenticated user", async () => {
+  describe("GraphQL calculator query", () => {
+    it("should return a calculator by ID", async () => {
       // Create a calculator first
-      await createCalculator(authCookies);
+      const calculator = await createCalculator(authCookies);
 
       const response = await request
         .post("/graphql")
         .set("Cookie", authCookies)
         .send({
           query: `
-            query {
-              myCalculators {
+            query GetCalculator($id: ID!) {
+              calculator(id: $id) {
                 id
                 name
                 min_desired_grade
@@ -110,32 +83,65 @@ describe("Calculators API", () => {
               }
             }
           `,
+          variables: { id: calculator.id },
         });
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body.data.myCalculators)).toBe(true);
-      expect(response.body.data.myCalculators.length).toBe(1);
-      expect(response.body.data.myCalculators[0]).toHaveProperty(
+      expect(response.body.data.calculator).toHaveProperty("id", calculator.id);
+      expect(response.body.data.calculator).toHaveProperty(
         "name",
-        "Test Calculator"
+        calculator.name
       );
     });
 
-    it("should require authentication", async () => {
-      const response = await request.post("/graphql").send({
-        query: `
-          query {
-            myCalculators {
-              id
-              name
+    it("should return null when calculator doesn't exist", async () => {
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            query GetCalculator($id: ID!) {
+              calculator(id: $id) {
+                id
+                name
+              }
             }
-          }
-        `,
-      });
+          `,
+          variables: { id: 999 },
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.calculator).toBeNull();
+    });
+
+    it("should throw error when trying to access another user's calculator", async () => {
+      // Create a calculator with the first user
+      const calculator = await createCalculator(authCookies);
+
+      // Create a second user
+      const secondUserCookies = await createAuthenticatedUser(
+        "calcuser2_" + Date.now()
+      );
+
+      // Try to access the calculator with the second user
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", secondUserCookies)
+        .send({
+          query: `
+            query GetCalculator($id: ID!) {
+              calculator(id: $id) {
+                id
+                name
+              }
+            }
+          `,
+          variables: { id: calculator.id },
+        });
 
       expect(response.status).toBe(200);
       expect(response.body.errors).toBeDefined();
-      expect(response.body.errors[0].message).toContain("Not authenticated");
+      expect(response.body.errors[0].message).toContain("Not authorized");
     });
   });
 

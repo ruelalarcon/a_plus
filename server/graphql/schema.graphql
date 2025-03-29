@@ -7,6 +7,8 @@ type User {
   username: String!
   templates: [CalculatorTemplate!]! # Templates created by this user
   courses: [Course!]! # Courses owned by this user
+  comments: [TemplateComment!]! # Comments made by this user
+  calculators: [Calculator!]! # Calculators owned by this user
 }
 
 # Assessment type based on the assessments table
@@ -70,6 +72,7 @@ type Course {
   id: ID!
   user: User! # Link to the owner User
   name: String!
+  credits: Float! # Credit amount for the course
   completed: Boolean!
   created_at: String! # Using String for now
   prerequisites: [Course!]! # List of prerequisite courses
@@ -107,9 +110,6 @@ type Query {
   # Get a specific calculator by ID (assuming authenticated user owns it)
   calculator(id: ID!): Calculator
 
-  # Get all calculators for the authenticated user
-  myCalculators: [Calculator!]
-
   # Get a specific template by ID
   template(id: ID!): CalculatorTemplate
 
@@ -122,14 +122,11 @@ type Query {
     page: Int = 1 # Default to page 1
     limit: Int = 20 # Default to 20 per page
   ): TemplatesPage! # Return paginated result type
-  # Get all templates created by the authenticated user
-  myTemplates: [CalculatorTemplate!]
+  # Get all comments created by a specific user
+  userComments(userId: ID!): [TemplateComment!]
 
   # Get a specific course by ID (assuming authenticated user owns it)
   course(id: ID!): Course
-
-  # Get all courses for the authenticated user
-  myCourses: [Course!]
 
   # Get comments for a specific template
   templateComments(templateId: ID!): [TemplateComment!]
@@ -149,9 +146,8 @@ type Mutation {
   # Create a new calculator
   createCalculator(
     name: String!
-    min_desired_grade: Float # Optional
-  ): # Assessments are typically added/updated via updateCalculator
-  Calculator
+    min_desired_grade: Float # Optional # Assessments are typically added/updated via updateCalculator
+  ): Calculator
 
   # Update an existing calculator (including its assessments)
   updateCalculator(
@@ -188,12 +184,14 @@ type Mutation {
   # Create a new course
   createCourse(
     name: String!
+    credits: Float!
     prerequisiteIds: [ID!] # Optional array of prerequisite course IDs
   ): Course # Return the created course
   # Update an existing course
   updateCourse(
     id: ID!
     name: String
+    credits: Float
     completed: Boolean
     prerequisiteIds: [ID!] # Allow updating prerequisites (pass empty array to remove all)
   ): Course # Return the updated course

@@ -15,10 +15,10 @@
   import Index from "./routes/Index.svelte";
   import Calculators from "./routes/Calculators.svelte";
   import Courses from "./routes/Courses.svelte";
-  import Templates from "./routes/Templates.svelte";
   import Calculator from "./routes/Calculator.svelte";
   import Search from "./routes/Search.svelte";
   import TemplatePreview from "./routes/TemplatePreview.svelte";
+  import User from "./routes/User.svelte";
 
   let isLoading = true;
 
@@ -72,11 +72,6 @@
           <Courses />
         {/if}
       </Route>
-      <Route path="/templates">
-        {#if $userId}
-          <Templates />
-        {/if}
-      </Route>
       <Route path="/calculator/:id" let:params>
         {#if $userId}
           <Calculator id={params.id} />
@@ -89,6 +84,9 @@
       </Route>
       <Route path="/template/:id" let:params>
         <TemplatePreview id={params.id} />
+      </Route>
+      <Route path="/user/:id" let:params>
+        <User id={params.id} />
       </Route>
     {/if}
   </main>

@@ -27,6 +27,7 @@ import {
   templateMutations,
   templateTypeResolvers,
 } from "./templates.js";
+import { userQueries, userTypeResolvers } from "./users.js";
 
 /**
  * Combined resolvers object containing all queries, mutations, and type resolvers
@@ -45,6 +46,7 @@ const resolvers = {
     ...calculatorQueries,
     ...courseQueries,
     ...templateQueries,
+    ...userQueries,
   },
 
   Mutation: {
@@ -60,6 +62,7 @@ const resolvers = {
   ...calculatorTypeResolvers,
   ...courseTypeResolvers,
   ...templateTypeResolvers,
+  ...userTypeResolvers,
 };
 
 export default resolvers;

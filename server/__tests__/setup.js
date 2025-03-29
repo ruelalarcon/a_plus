@@ -1,5 +1,5 @@
 import { clearAllTables, closeDatabase } from "../db.js";
-import { app, startServer } from "../server.js";
+import { startServer } from "../server.js";
 
 // Set test environment
 process.env.NODE_ENV = "test";

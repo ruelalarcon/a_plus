@@ -27,8 +27,8 @@ export const courseQueries = {
    * @param {Object} args - GraphQL arguments
    * @param {string} args.id - The ID of the course to retrieve
    * @param {Object} context - Request context containing session data
-   * @returns {Object|null} - Course object if found and belongs to user, null otherwise
-   * @throws {GraphQLError} - If user is not authenticated
+   * @returns {Object} - Course object if found and belongs to user
+   * @throws {GraphQLError} - If user is not authenticated or not authorized to view this course
    */
   course: (_parent, { id }, context) => {
     if (!context.session?.userId) {
@@ -41,15 +41,23 @@ export const courseQueries = {
     );
 
     // Fetch the course
-    const course = db
-      .prepare("SELECT * FROM courses WHERE id = ? AND user_id = ?")
-      .get(id, context.session.userId);
+    const course = db.prepare("SELECT * FROM courses WHERE id = ?").get(id);
 
     if (!course) {
-      logger.debug(
-        `Course with ID: ${id} not found for user: ${context.session.userId}`
+      logger.debug(`Course with ID: ${id} not found`);
+      throw new GraphQLError("Course not found", {
+        extensions: { code: "NOT_FOUND" },
+      });
+    }
+
+    // Check if user is authorized to view this course
+    if (course.user_id !== context.session.userId) {
+      logger.warn(
+        `Unauthorized access to course ${id} by user ${context.session.userId}`
       );
-      return null;
+      throw new GraphQLError("Not authorized to view this course", {
+        extensions: { code: "FORBIDDEN" },
+      });
     }
 
     // Fetch prerequisites in the same query
@@ -66,72 +74,6 @@ export const courseQueries = {
 
     return course;
   },
-
-  /**
-   * Retrieves all courses belonging to the current user
-   *
-   * @param {Object} _parent - Parent resolver object (unused)
-   * @param {Object} _args - GraphQL arguments (unused)
-   * @param {Object} context - Request context containing session data
-   * @returns {Array} - Array of course objects belonging to the user
-   * @throws {GraphQLError} - If user is not authenticated
-   */
-  myCourses: (_parent, _args, context) => {
-    if (!context.session?.userId) {
-      throw new GraphQLError("Not authenticated", {
-        extensions: { code: "UNAUTHENTICATED" },
-      });
-    }
-    logger.debug(`Fetching all courses for user: ${context.session.userId}`);
-
-    // Fetch all courses
-    const courses = db
-      .prepare(
-        "SELECT * FROM courses WHERE user_id = ? ORDER BY created_at ASC"
-      )
-      .all(context.session.userId);
-
-    if (courses.length === 0) {
-      logger.debug(`No courses found for user: ${context.session.userId}`);
-      return [];
-    }
-
-    // Create a map to store course IDs and their prerequisites
-    const courseMap = new Map();
-    courses.forEach((course) => {
-      course._prerequisites = [];
-      courseMap.set(course.id, course);
-    });
-
-    // Fetch all prerequisites for these courses in a single query
-    const placeholders = courses.map(() => "?").join(",");
-    const courseIds = courses.map((course) => course.id);
-
-    const allPrerequisites = db
-      .prepare(
-        `SELECT p.course_id, c.*
-         FROM courses c
-         JOIN course_prerequisites p ON c.id = p.prerequisite_id
-         WHERE p.course_id IN (${placeholders})`
-      )
-      .all(...courseIds);
-
-    // Organize prerequisites into their respective courses
-    allPrerequisites.forEach((row) => {
-      const course = courseMap.get(row.course_id);
-      if (course) {
-        // Remove the course_id from the prerequisite data
-        const prerequisite = { ...row };
-        delete prerequisite.course_id;
-        course._prerequisites.push(prerequisite);
-      }
-    });
-
-    logger.debug(
-      `Retrieved ${courses.length} courses with their prerequisites`
-    );
-    return courses;
-  },
 };
 
 /**
@@ -144,12 +86,13 @@ export const courseMutations = {
    * @param {Object} _parent - Parent resolver object (unused)
    * @param {Object} args - GraphQL arguments
    * @param {string} args.name - The name of the course
+   * @param {number} args.credits - The number of credit units for the course
    * @param {Array} [args.prerequisiteIds] - Optional array of course IDs that are prerequisites
    * @param {Object} context - Request context containing session data
    * @returns {Object} - The newly created course object
    * @throws {GraphQLError} - If user is not authenticated, prerequisite course not found, or creation fails
    */
-  createCourse: (_parent, { name, prerequisiteIds }, context) => {
+  createCourse: (_parent, { name, credits, prerequisiteIds }, context) => {
     if (!context.session?.userId) {
       throw new GraphQLError("Not authenticated", {
         extensions: { code: "UNAUTHENTICATED" },
@@ -162,9 +105,9 @@ export const courseMutations = {
       const db_transaction = db.transaction(() => {
         // Create course
         const courseStmt = db.prepare(
-          "INSERT INTO courses (user_id, name) VALUES (?, ?)"
+          "INSERT INTO courses (user_id, name, credits) VALUES (?, ?, ?)"
         );
-        const result = courseStmt.run(context.session.userId, name);
+        const result = courseStmt.run(context.session.userId, name, credits);
         const courseId = result.lastInsertRowid;
 
         // Add prerequisites
@@ -215,7 +158,7 @@ export const courseMutations = {
       }
 
       logger.info(
-        `Course created: ID=${newCourseId}, Name=${name}, User=${context.session.userId}`,
+        `Course created: ID=${newCourseId}, Name=${name}, Credits=${credits}, User=${context.session.userId}`,
         {
           prerequisiteCount: resolvedPrerequisiteIds.length,
         }
@@ -226,6 +169,7 @@ export const courseMutations = {
         error,
         userId: context.session.userId,
         name,
+        credits,
         prerequisiteIds: resolvedPrerequisiteIds,
       });
       // Rethrow specific errors like BAD_USER_INPUT
@@ -248,6 +192,7 @@ export const courseMutations = {
    * @param {Object} args - GraphQL arguments
    * @param {string} args.id - The ID of the course to update
    * @param {string} [args.name] - New name for the course (optional)
+   * @param {number} [args.credits] - New credit amount for the course (optional)
    * @param {boolean} [args.completed] - Whether the course is completed (optional)
    * @param {Array} [args.prerequisiteIds] - New list of prerequisite course IDs (optional)
    * @param {Object} context - Request context containing session data
@@ -256,7 +201,7 @@ export const courseMutations = {
    */
   updateCourse: (
     _parent,
-    { id, name, completed, prerequisiteIds },
+    { id, name, credits, completed, prerequisiteIds },
     context
   ) => {
     if (!context.session?.userId) {
@@ -280,13 +225,21 @@ export const courseMutations = {
 
     try {
       const db_transaction = db.transaction(() => {
-        // Update course details (name, completed)
-        if (name !== undefined || completed !== undefined) {
+        // Update course details (name, credits, completed)
+        if (
+          name !== undefined ||
+          credits !== undefined ||
+          completed !== undefined
+        ) {
           const updates = [];
           const params = [];
           if (name !== undefined) {
             updates.push("name = ?");
             params.push(name);
+          }
+          if (credits !== undefined) {
+            updates.push("credits = ?");
+            params.push(credits);
           }
           if (completed !== undefined) {
             updates.push("completed = ?");
@@ -364,6 +317,7 @@ export const courseMutations = {
 
       logger.info(`Course updated: ID=${id}, User=${context.session.userId}`, {
         nameChanged: name !== undefined,
+        creditsChanged: credits !== undefined,
         completedChanged: completed !== undefined,
         prerequisitesChanged: prerequisiteIds !== undefined,
         prerequisiteCount: prerequisiteIds?.length,

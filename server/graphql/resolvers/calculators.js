@@ -25,8 +25,8 @@ export const calculatorQueries = {
    * @param {Object} args - GraphQL arguments
    * @param {string} args.id - The ID of the calculator to retrieve
    * @param {Object} context - Request context containing session data
-   * @returns {Object|null} - Calculator object if found and belongs to user, null otherwise
-   * @throws {GraphQLError} - If user is not authenticated
+   * @returns {Object} - Calculator object if found and belongs to user
+   * @throws {GraphQLError} - If user is not authenticated or not authorized to view this calculator
    */
   calculator: (_parent, { id }, context) => {
     if (!context.session?.userId) {
@@ -39,15 +39,23 @@ export const calculatorQueries = {
     );
 
     // Fetch the calculator
-    const calc = db
-      .prepare("SELECT * FROM calculators WHERE id = ? AND user_id = ?")
-      .get(id, context.session.userId);
+    const calc = db.prepare("SELECT * FROM calculators WHERE id = ?").get(id);
 
     if (!calc) {
-      logger.debug(
-        `Calculator with ID: ${id} not found for user: ${context.session.userId}`
+      logger.debug(`Calculator with ID: ${id} not found`);
+      throw new GraphQLError("Calculator not found", {
+        extensions: { code: "NOT_FOUND" },
+      });
+    }
+
+    // Check if user is authorized to view this calculator
+    if (calc.user_id !== context.session.userId) {
+      logger.warn(
+        `Unauthorized access to calculator ${id} by user ${context.session.userId}`
       );
-      return null;
+      throw new GraphQLError("Not authorized to view this calculator", {
+        extensions: { code: "FORBIDDEN" },
+      });
     }
 
     // Fetch assessments in the same query
@@ -61,70 +69,6 @@ export const calculatorQueries = {
     calc._assessments = assessments;
 
     return calc;
-  },
-
-  /**
-   * Retrieves all calculators belonging to the current user
-   *
-   * @param {Object} _parent - Parent resolver object (unused)
-   * @param {Object} _args - GraphQL arguments (unused)
-   * @param {Object} context - Request context containing session data
-   * @returns {Array} - Array of calculator objects belonging to the user
-   * @throws {GraphQLError} - If user is not authenticated
-   */
-  myCalculators: (_parent, _args, context) => {
-    if (!context.session?.userId) {
-      throw new GraphQLError("Not authenticated", {
-        extensions: { code: "UNAUTHENTICATED" },
-      });
-    }
-    logger.debug(
-      `Fetching all calculators for user: ${context.session.userId}`
-    );
-
-    // Fetch all calculators
-    const calcs = db
-      .prepare(
-        "SELECT * FROM calculators WHERE user_id = ? ORDER BY created_at DESC"
-      )
-      .all(context.session.userId);
-
-    if (calcs.length === 0) {
-      logger.debug(`No calculators found for user: ${context.session.userId}`);
-      return [];
-    }
-
-    // Create a map to store calculator IDs and their assessments
-    const calcMap = new Map();
-    calcs.forEach((calc) => {
-      calc._assessments = [];
-      calcMap.set(calc.id, calc);
-    });
-
-    // Fetch all assessments for these calculators in a single query
-    const placeholders = calcs.map(() => "?").join(",");
-    const calculatorIds = calcs.map((calc) => calc.id);
-
-    const allAssessments = db
-      .prepare(
-        `SELECT * FROM assessments
-         WHERE calculator_id IN (${placeholders})
-         ORDER BY id ASC`
-      )
-      .all(...calculatorIds);
-
-    // Organize assessments into their respective calculators
-    allAssessments.forEach((assessment) => {
-      const calc = calcMap.get(assessment.calculator_id);
-      if (calc) {
-        calc._assessments.push(assessment);
-      }
-    });
-
-    logger.debug(
-      `Retrieved ${calcs.length} calculators with their assessments`
-    );
-    return calcs;
   },
 };
 

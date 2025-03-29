@@ -29,7 +29,12 @@ const colors = {
 winston.addColors(colors);
 
 // Determine log level based on environment
-const level = process.env.NODE_ENV === "production" ? "info" : "debug";
+const level =
+  process.env.NODE_ENV === "production"
+    ? "info"
+    : process.env.NODE_ENV === "test"
+    ? "error" // Only log errors in test environment
+    : "debug";
 
 // Define log format
 const format = winston.format.combine(
@@ -44,17 +49,28 @@ const format = winston.format.combine(
 );
 
 // Define which transports to use (where logs should go)
-const transports = [
-  // Console transport
-  new winston.transports.Console(),
-  // File transport for errors
-  new winston.transports.File({
-    filename: "logs/error.log",
-    level: "error",
-  }),
-  // File transport for all logs
-  new winston.transports.File({ filename: "logs/all.log" }),
-];
+const transports = [];
+
+// Only add transports if not in test mode, unless explicitly enabled
+if (
+  process.env.NODE_ENV !== "test" ||
+  process.env.ENABLE_TEST_LOGS === "true"
+) {
+  transports.push(
+    // Console transport
+    new winston.transports.Console(),
+    // File transport for errors
+    new winston.transports.File({
+      filename: "logs/error.log",
+      level: "error",
+    }),
+    // File transport for all logs
+    new winston.transports.File({ filename: "logs/all.log" })
+  );
+} else {
+  // Silent transport for test environment
+  transports.push(new winston.transports.Console({ silent: true }));
+}
 
 // Create the logger
 const logger = winston.createLogger({

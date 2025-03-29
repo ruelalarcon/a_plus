@@ -27,27 +27,91 @@ export const LOGOUT = /* GraphQL */ `
   }
 `;
 
-// ----- Calculator mutations ----- //
-export const CREATE_CALCULATOR = /* GraphQL */ `
-  mutation CreateCalculator($name: String!, $min_desired_grade: Float) {
-    createCalculator(name: $name, min_desired_grade: $min_desired_grade) {
+// ----- Course mutations ----- //
+export const CREATE_COURSE = /* GraphQL */ `
+  mutation CreateCourse(
+    $name: String!
+    $credits: Float!
+    $prerequisiteIds: [ID!]
+  ) {
+    createCourse(
+      name: $name
+      credits: $credits
+      prerequisiteIds: $prerequisiteIds
+    ) {
       id
       name
-      min_desired_grade
-      created_at
-      assessments {
+      credits
+      completed
+      prerequisites {
         id
         name
-        weight
-        grade
+        credits
+        completed
       }
     }
   }
 `;
 
+export const UPDATE_COURSE = /* GraphQL */ `
+  mutation UpdateCourse(
+    $id: ID!
+    $name: String
+    $credits: Float
+    $completed: Boolean
+    $prerequisiteIds: [ID!]
+  ) {
+    updateCourse(
+      id: $id
+      name: $name
+      credits: $credits
+      completed: $completed
+      prerequisiteIds: $prerequisiteIds
+    ) {
+      id
+      name
+      credits
+      completed
+      prerequisites {
+        id
+        name
+        credits
+        completed
+      }
+    }
+  }
+`;
+
+export const DELETE_COURSE = /* GraphQL */ `
+  mutation DeleteCourse($id: ID!) {
+    deleteCourse(id: $id)
+  }
+`;
+
+// ----- Calculator mutations ----- //
+export const CREATE_CALCULATOR = /* GraphQL */ `
+  mutation CreateCalculator($name: String!, $minDesiredGrade: Float) {
+    createCalculator(name: $name, min_desired_grade: $minDesiredGrade) {
+      id
+      name
+      min_desired_grade
+    }
+  }
+`;
+
 export const UPDATE_CALCULATOR = /* GraphQL */ `
-  mutation UpdateCalculator($id: ID!, $name: String, $min_desired_grade: Float, $assessments: [AssessmentInput!]) {
-    updateCalculator(id: $id, name: $name, min_desired_grade: $min_desired_grade, assessments: $assessments) {
+  mutation UpdateCalculator(
+    $id: ID!
+    $name: String
+    $minDesiredGrade: Float
+    $assessments: [AssessmentInput!]
+  ) {
+    updateCalculator(
+      id: $id
+      name: $name
+      min_desired_grade: $minDesiredGrade
+      assessments: $assessments
+    ) {
       id
       name
       min_desired_grade
@@ -69,15 +133,25 @@ export const DELETE_CALCULATOR = /* GraphQL */ `
 
 // ----- Template mutations ----- //
 export const CREATE_TEMPLATE = /* GraphQL */ `
-  mutation CreateTemplate($name: String!, $term: String!, $year: Int!, $institution: String!, $assessments: [TemplateAssessmentInput!]!) {
-    createTemplate(name: $name, term: $term, year: $year, institution: $institution, assessments: $assessments) {
+  mutation CreateTemplate(
+    $name: String!
+    $term: String!
+    $year: Int!
+    $institution: String!
+    $assessments: [TemplateAssessmentInput!]!
+  ) {
+    createTemplate(
+      name: $name
+      term: $term
+      year: $year
+      institution: $institution
+      assessments: $assessments
+    ) {
       id
       name
       term
       year
       institution
-      vote_count
-      created_at
       assessments {
         id
         name
@@ -87,18 +161,12 @@ export const CREATE_TEMPLATE = /* GraphQL */ `
   }
 `;
 
-export const DELETE_TEMPLATE = /* GraphQL */ `
-  mutation DeleteTemplate($id: ID!) {
-    deleteTemplate(id: $id)
-  }
-`;
-
 export const USE_TEMPLATE = /* GraphQL */ `
   mutation UseTemplate($templateId: ID!) {
     useTemplate(templateId: $templateId) {
       id
       name
-      template_id
+      min_desired_grade
       assessments {
         id
         name
@@ -129,52 +197,19 @@ export const REMOVE_TEMPLATE_VOTE = /* GraphQL */ `
   }
 `;
 
-// ----- Course mutations ----- //
-export const CREATE_COURSE = /* GraphQL */ `
-  mutation CreateCourse($name: String!, $prerequisiteIds: [ID!]) {
-    createCourse(name: $name, prerequisiteIds: $prerequisiteIds) {
-      id
-      name
-      completed
-      created_at
-      prerequisites {
-        id
-        name
-        completed
-      }
-    }
+export const DELETE_TEMPLATE = /* GraphQL */ `
+  mutation DeleteTemplate($id: ID!) {
+    deleteTemplate(id: $id)
   }
 `;
 
-export const UPDATE_COURSE = /* GraphQL */ `
-  mutation UpdateCourse($id: ID!, $name: String, $completed: Boolean, $prerequisiteIds: [ID!]) {
-    updateCourse(id: $id, name: $name, completed: $completed, prerequisiteIds: $prerequisiteIds) {
-      id
-      name
-      completed
-      prerequisites {
-        id
-        name
-        completed
-      }
-    }
-  }
-`;
-
-export const DELETE_COURSE = /* GraphQL */ `
-  mutation DeleteCourse($id: ID!) {
-    deleteCourse(id: $id)
-  }
-`;
-
-// ----- Template comment mutations ----- //
+// ----- Comment mutations ----- //
 export const ADD_TEMPLATE_COMMENT = /* GraphQL */ `
   mutation AddTemplateComment($templateId: ID!, $content: String!) {
     addTemplateComment(templateId: $templateId, content: $content) {
       id
       content
       created_at
-      updated_at
       author {
         id
         username
@@ -188,12 +223,7 @@ export const UPDATE_TEMPLATE_COMMENT = /* GraphQL */ `
     updateTemplateComment(commentId: $commentId, content: $content) {
       id
       content
-      created_at
       updated_at
-      author {
-        id
-        username
-      }
     }
   }
 `;

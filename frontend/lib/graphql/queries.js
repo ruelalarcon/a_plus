@@ -21,6 +21,90 @@ export const USER = /* GraphQL */ `
   }
 `;
 
+// ----- User data queries ----- //
+export const USER_CALCULATORS = /* GraphQL */ `
+  query UserCalculators($userId: ID!) {
+    user(id: $userId) {
+      id
+      calculators {
+        id
+        name
+        min_desired_grade
+        created_at
+        template_id
+        assessments {
+          id
+          name
+          weight
+          grade
+        }
+      }
+    }
+  }
+`;
+
+export const USER_COURSES = /* GraphQL */ `
+  query UserCourses($userId: ID!) {
+    user(id: $userId) {
+      id
+      courses {
+        id
+        name
+        credits
+        completed
+        created_at
+        prerequisites {
+          id
+          name
+          credits
+          completed
+        }
+      }
+    }
+  }
+`;
+
+export const USER_TEMPLATES = /* GraphQL */ `
+  query UserTemplates($id: ID!) {
+    user(id: $id) {
+      id
+      username
+      templates {
+        id
+        name
+        term
+        year
+        institution
+        vote_count
+        user_vote
+        created_at
+        creator {
+          id
+          username
+        }
+      }
+    }
+  }
+`;
+
+export const USER_COMMENTS = /* GraphQL */ `
+  query UserComments($userId: ID!) {
+    user(id: $userId) {
+      id
+      comments {
+        id
+        content
+        created_at
+        updated_at
+        template {
+          id
+          name
+        }
+      }
+    }
+  }
+`;
+
 // ----- Calculator queries ----- //
 export const CALCULATOR = /* GraphQL */ `
   query Calculator($id: ID!) {
@@ -42,24 +126,6 @@ export const CALCULATOR = /* GraphQL */ `
         term
         year
         institution
-      }
-    }
-  }
-`;
-
-export const MY_CALCULATORS = /* GraphQL */ `
-  query MyCalculators {
-    myCalculators {
-      id
-      name
-      min_desired_grade
-      created_at
-      template_id
-      assessments {
-        id
-        name
-        weight
-        grade
       }
     }
   }
@@ -128,49 +194,6 @@ export const ALL_TEMPLATES = /* GraphQL */ `
   }
 `;
 
-export const MY_TEMPLATES = /* GraphQL */ `
-  query MyTemplates {
-    myTemplates {
-      id
-      name
-      term
-      year
-      institution
-      vote_count
-      user_vote
-      created_at
-      creator {
-        id
-        username
-      }
-    }
-  }
-`;
-
-// Query to get user's templates by user ID
-export const USER_TEMPLATES = /* GraphQL */ `
-  query UserTemplates($id: ID!) {
-    user(id: $id) {
-      id
-      username
-      templates {
-        id
-        name
-        term
-        year
-        institution
-        vote_count
-        user_vote
-        created_at
-        creator {
-          id
-          username
-        }
-      }
-    }
-  }
-`;
-
 export const TEMPLATE_COMMENTS = /* GraphQL */ `
   query TemplateComments($templateId: ID!) {
     templateComments(templateId: $templateId) {
@@ -192,27 +215,13 @@ export const COURSE = /* GraphQL */ `
     course(id: $id) {
       id
       name
+      credits
       completed
       created_at
       prerequisites {
         id
         name
-        completed
-      }
-    }
-  }
-`;
-
-export const MY_COURSES = /* GraphQL */ `
-  query MyCourses {
-    myCourses {
-      id
-      name
-      completed
-      created_at
-      prerequisites {
-        id
-        name
+        credits
         completed
       }
     }
