@@ -1,118 +1,230 @@
 <script>
   import { userId } from "../lib/stores.js";
   import { Button } from "$lib/components/ui/button";
+  import * as Tooltip from "$lib/components/ui/tooltip";
+  import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import { onMount } from "svelte";
   import { mutate } from "../lib/graphql/client.js";
   import {
     VOTE_TEMPLATE,
     REMOVE_TEMPLATE_VOTE,
+    DELETE_TEMPLATE,
   } from "../lib/graphql/mutations.js";
+  import { toast } from "svelte-sonner";
 
+  // Icons
+  import ThumbsUp from "lucide-svelte/icons/thumbs-up";
+  import ThumbsDown from "lucide-svelte/icons/thumbs-down";
+  import Lock from "lucide-svelte/icons/lock";
+  import Trash2 from "lucide-svelte/icons/trash-2";
+
+  // Props
   export let voteCount;
   export let userVote;
   export let creatorId;
   export let templateId;
+  export let onDelete = () => {}; // Callback function when template is deleted
 
-  // Initialize local state only once to prevent unnecessary rerenders
+  // UI state
   let loading = false;
-  let localVoteCount;
-  let localUserVote;
+  let localVoteCount = 0;
+  let localUserVote = 0;
   let isCreator = false;
+  let deleteDialogOpen = false;
 
-  // Initialize values only on mount
+  // Initialize values on mount to prevent unnecessary rerenders
   onMount(() => {
     localVoteCount = voteCount;
     localUserVote = userVote;
-    checkCreator();
+    updateCreatorStatus();
   });
 
   // Update creator status when userId changes
-  function checkCreator() {
-    if ($userId && creatorId) {
-      // Force both to strings for comparison
-      isCreator = String($userId) === String(creatorId);
-    } else {
-      isCreator = false;
-    }
+  function updateCreatorStatus() {
+    isCreator =
+      $userId && creatorId ? String($userId) === String(creatorId) : false;
   }
 
-  // Subscribe to userId changes to update creator status
-  $: if ($userId !== undefined) checkCreator();
+  // Watch for userId changes to update creator status
+  $: if ($userId !== undefined) updateCreatorStatus();
 
+  /**
+   * Handles voting on a template
+   * @param {number} vote - The vote value (1 for upvote, -1 for downvote)
+   */
   async function handleVote(vote) {
     if (loading || isCreator) return;
 
-    // Optimistically update UI first
+    // Store previous values for rollback
     const previousVote = localUserVote;
     const previousCount = localVoteCount;
 
+    // Optimistically update UI
     if (localUserVote === vote) {
-      // Removing vote - update locally immediately
+      // Removing vote
       localUserVote = 0;
-      localVoteCount -= vote; // Subtract the vote value (1 or -1)
+      localVoteCount -= vote;
     } else {
-      // Adding/changing vote - update locally immediately
-      // If changing vote (e.g. from -1 to 1), we need to change by 2
+      // Adding/changing vote
       const adjustment = previousVote ? vote - previousVote : vote;
       localVoteCount += adjustment;
       localUserVote = vote;
     }
 
-    // Set loading to prevent multiple clicks
+    // Set loading state
     loading = true;
 
     try {
       // Make API call in background
       if (previousVote === vote) {
         // Remove vote
-        mutate(REMOVE_TEMPLATE_VOTE, { templateId }).catch((error) => {
-          console.error("Error removing vote:", error);
-          // Revert on error
-          localVoteCount = previousCount;
-          localUserVote = previousVote;
-        });
+        await mutate(REMOVE_TEMPLATE_VOTE, { templateId });
       } else {
         // Add/change vote
-        mutate(VOTE_TEMPLATE, { templateId, vote }).catch((error) => {
-          console.error("Error voting:", error);
-          // Revert on error
-          localVoteCount = previousCount;
-          localUserVote = previousVote;
-        });
+        await mutate(VOTE_TEMPLATE, { templateId, vote });
       }
+    } catch (error) {
+      console.error("Error updating vote:", error);
+      // Revert on error
+      localVoteCount = previousCount;
+      localUserVote = previousVote;
+      toast.error("Failed to update vote");
     } finally {
-      // Enable button again after short delay to prevent spam clicking
+      // Reset loading state after a brief delay to prevent spam clicking
       setTimeout(() => {
         loading = false;
       }, 300);
     }
   }
+
+  /**
+   * Handles template deletion
+   */
+  async function deleteTemplate() {
+    try {
+      const result = await mutate(DELETE_TEMPLATE, { id: templateId });
+      if (result.deleteTemplate) {
+        toast.success("Template deleted successfully");
+        onDelete(templateId);
+        deleteDialogOpen = false;
+      } else {
+        toast.error("Failed to delete template");
+      }
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      toast.error("Failed to delete template");
+    }
+  }
 </script>
 
 <div class="vote-buttons">
-  <Button
-    variant={localUserVote === 1 ? "default" : "outline"}
-    size="icon"
-    on:click={() => handleVote(1)}
-    disabled={isCreator || loading}
-    class="vote-button"
-    aria-label="Upvote"
-  >
-    <span class="text-lg">👍</span>
-  </Button>
+  {#if isCreator}
+    <div class="flex items-center gap-2">
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild let:builder>
+          <div class="relative" use:builder.action {...builder}>
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={true}
+              class="vote-button opacity-70"
+              aria-label="Upvote"
+            >
+              <ThumbsUp class="h-4 w-4" />
+              <Lock
+                class="absolute bottom-0 right-0 h-3 w-3 text-muted-foreground"
+              />
+            </Button>
+          </div>
+        </Tooltip.Trigger>
+        <Tooltip.Content>Cannot vote on your own template</Tooltip.Content>
+      </Tooltip.Root>
 
-  <span class="vote-count">{localVoteCount ?? voteCount}</span>
+      <span class="vote-count text-sm">{localVoteCount}</span>
 
-  <Button
-    variant={localUserVote === -1 ? "default" : "outline"}
-    size="icon"
-    on:click={() => handleVote(-1)}
-    disabled={isCreator || loading}
-    class="vote-button"
-    aria-label="Downvote"
-  >
-    <span class="text-lg">👎</span>
-  </Button>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild let:builder>
+          <div class="relative" use:builder.action {...builder}>
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={true}
+              class="vote-button opacity-70"
+              aria-label="Downvote"
+            >
+              <ThumbsDown class="h-4 w-4" />
+              <Lock
+                class="absolute bottom-0 right-0 h-3 w-3 text-muted-foreground"
+              />
+            </Button>
+          </div>
+        </Tooltip.Trigger>
+        <Tooltip.Content>Cannot vote on your own template</Tooltip.Content>
+      </Tooltip.Root>
+
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild let:builder>
+          <Button
+            variant="outline"
+            size="icon"
+            class="text-destructive hover:bg-destructive/10 ml-1"
+            on:click={() => (deleteDialogOpen = true)}
+          >
+            <Trash2 class="h-4 w-4" />
+          </Button>
+        </Tooltip.Trigger>
+        <Tooltip.Content>Delete template</Tooltip.Content>
+      </Tooltip.Root>
+
+      <AlertDialog.Root
+        open={deleteDialogOpen}
+        onOpenChange={(open) => (deleteDialogOpen = open)}
+      >
+        <AlertDialog.Content>
+          <AlertDialog.Header>
+            <AlertDialog.Title>Delete Template</AlertDialog.Title>
+            <AlertDialog.Description>
+              Are you sure you want to delete this template? This action cannot
+              be undone.
+            </AlertDialog.Description>
+          </AlertDialog.Header>
+          <AlertDialog.Footer>
+            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Action
+              on:click={deleteTemplate}
+              class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialog.Action>
+          </AlertDialog.Footer>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
+    </div>
+  {:else}
+    <Button
+      variant={localUserVote === 1 ? "default" : "outline"}
+      size="icon"
+      on:click={() => handleVote(1)}
+      disabled={loading}
+      class="vote-button"
+      aria-label="Upvote"
+    >
+      <ThumbsUp class="h-4 w-4" />
+    </Button>
+
+    <span class="vote-count text-sm">{localVoteCount}</span>
+
+    <Button
+      variant={localUserVote === -1 ? "default" : "outline"}
+      size="icon"
+      on:click={() => handleVote(-1)}
+      disabled={loading}
+      class="vote-button"
+      aria-label="Downvote"
+    >
+      <ThumbsDown class="h-4 w-4" />
+    </Button>
+  {/if}
 </div>
 
 <style>

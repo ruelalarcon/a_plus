@@ -1,15 +1,6 @@
 <script>
-  import { userId } from "../lib/stores.js";
   import { Button } from "$lib/components/ui/button";
   import { Textarea } from "$lib/components/ui/textarea";
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-  } from "$lib/components/ui/card";
   import { Separator } from "$lib/components/ui/separator";
   import { query, mutate } from "../lib/graphql/client.js";
   import { TEMPLATE_COMMENTS } from "../lib/graphql/queries.js";
@@ -18,76 +9,94 @@
     UPDATE_TEMPLATE_COMMENT,
     DELETE_TEMPLATE_COMMENT,
   } from "../lib/graphql/mutations.js";
+  import { toast } from "svelte-sonner";
+  import * as AlertDialog from "$lib/components/ui/alert-dialog";
+  import CommentCard from "./CommentCard.svelte";
 
   export let templateId;
 
+  // State
   let comments = [];
   let newComment = "";
   let editingComment = null;
+  let editContent = "";
+  let isLoading = false;
+  let isSubmitting = false;
+  let isDeleting = false;
+  let isDialogOpen = false;
+  let commentToDelete = null;
 
+  // Comment loading
   async function loadComments() {
+    isLoading = true;
     try {
       const data = await query(TEMPLATE_COMMENTS, { templateId });
       comments = data.templateComments;
     } catch (error) {
       console.error("Error loading comments:", error);
+      toast.error("Failed to load comments");
+    } finally {
+      isLoading = false;
     }
   }
 
+  // Comment creation
   async function submitComment() {
-    if (!newComment.trim()) return;
+    const content = newComment.trim();
+    if (!content) return;
 
+    isSubmitting = true;
     try {
       const data = await mutate(ADD_TEMPLATE_COMMENT, {
         templateId,
-        content: newComment.trim(),
+        content,
       });
 
       if (data.addTemplateComment) {
         comments = [data.addTemplateComment, ...comments];
         newComment = "";
+        toast.success("Comment added");
       }
     } catch (error) {
       console.error("Error submitting comment:", error);
-      alert("Failed to submit comment");
+      toast.error("Failed to submit comment");
+    } finally {
+      isSubmitting = false;
     }
   }
 
-  async function deleteComment(commentId) {
-    if (!confirm("Are you sure you want to delete this comment?")) return;
-
-    try {
-      const data = await mutate(DELETE_TEMPLATE_COMMENT, { commentId });
-      if (data.deleteTemplateComment) {
-        comments = comments.filter((c) => c.id !== commentId);
-      }
-    } catch (error) {
-      console.error("Error deleting comment:", error);
-      alert("Failed to delete comment");
-    }
-  }
-
-  function startEdit(comment) {
-    editingComment = { ...comment };
-  }
-
-  function cancelEdit() {
-    editingComment = null;
-  }
-
-  async function saveEdit(comment) {
-    if (
-      !editingComment.content.trim() ||
-      editingComment.content === comment.content
-    ) {
-      cancelEdit();
+  // Comment editing
+  function handleEdit(comment, content) {
+    if (!comment) {
+      // Cancel edit
+      editingComment = null;
+      editContent = "";
       return;
     }
 
+    if (content) {
+      // Save edit
+      saveEdit(comment, content);
+      return;
+    }
+
+    // Start edit
+    editingComment = { ...comment };
+    editContent = comment.content;
+  }
+
+  async function saveEdit(comment, content) {
+    if (!content.trim() || content === comment.content) {
+      editingComment = null;
+      editContent = "";
+      return;
+    }
+
+    isSubmitting = true;
     try {
       const data = await mutate(UPDATE_TEMPLATE_COMMENT, {
         commentId: comment.id,
-        content: editingComment.content.trim(),
+        content: content.trim(),
       });
 
       if (data.updateTemplateComment) {
@@ -95,13 +104,42 @@
           c.id === comment.id ? data.updateTemplateComment : c
         );
         editingComment = null;
-      } else {
-        console.error("Error response from API");
-        alert("Failed to save comment: Unknown error");
+        editContent = "";
+        toast.success("Comment updated");
       }
     } catch (error) {
       console.error("Error saving comment:", error);
-      alert("Failed to save comment");
+      toast.error("Failed to update comment");
+    } finally {
+      isSubmitting = false;
+    }
+  }
+
+  // Comment deletion
+  function handleDelete(comment) {
+    commentToDelete = comment;
+    isDialogOpen = true;
+  }
+
+  async function deleteComment() {
+    if (!commentToDelete) return;
+
+    isDeleting = true;
+    try {
+      const data = await mutate(DELETE_TEMPLATE_COMMENT, {
+        commentId: commentToDelete.id,
+      });
+      if (data.deleteTemplateComment) {
+        comments = comments.filter((c) => c.id !== commentToDelete.id);
+        toast.success("Comment deleted");
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast.error("Failed to delete comment");
+    } finally {
+      isDeleting = false;
+      isDialogOpen = false;
+      commentToDelete = null;
     }
   }
 
@@ -109,80 +147,69 @@
   loadComments();
 </script>
 
-<Card class="w-full">
-  <CardHeader>
-    <CardTitle>Comments</CardTitle>
-  </CardHeader>
-
-  <CardContent>
-    <div class="space-y-4">
-      <form class="space-y-4">
-        <Textarea
-          bind:value={newComment}
-          placeholder="Add a comment..."
-          rows="3"
-        />
-        <div class="flex justify-end">
-          <Button type="button" on:click={submitComment}>Post Comment</Button>
-        </div>
-      </form>
-
-      {#if comments.length > 0}
-        <div class="space-y-4">
-          {#each comments as comment}
-            <div class="comment">
-              <div class="flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                  <strong>{comment.author.username}</strong>
-                  <span class="text-sm text-muted-foreground">
-                    {new Date(comment.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-                {#if comment.author.id === $userId}
-                  <div class="flex gap-2">
-                    {#if editingComment?.id === comment.id}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        on:click={() => saveEdit(comment)}>Save</Button
-                      >
-                      <Button variant="outline" size="sm" on:click={cancelEdit}
-                        >Cancel</Button
-                      >
-                    {:else}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        on:click={() => startEdit(comment)}>Edit</Button
-                      >
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        on:click={() => deleteComment(comment.id)}
-                        >Delete</Button
-                      >
-                    {/if}
-                  </div>
-                {/if}
-              </div>
-
-              {#if editingComment?.id === comment.id}
-                <div class="mt-2">
-                  <Textarea bind:value={editingComment.content} rows="3" />
-                </div>
-              {:else}
-                <p class="mt-2">{comment.content}</p>
-              {/if}
-
-              <Separator class="mt-4" />
-            </div>
-          {/each}
-        </div>
-      {:else}
-        <p class="text-center text-muted-foreground">
-          No comments yet. Be the first to comment!
-        </p>
-      {/if}
+<div class="space-y-4">
+  {#if isLoading}
+    <div class="text-center py-4 text-muted-foreground">
+      Loading comments...
     </div>
-  </CardContent>
-</Card>
+  {:else}
+    <form class="space-y-4" on:submit|preventDefault={submitComment}>
+      <Textarea
+        bind:value={newComment}
+        placeholder="Add a comment..."
+        rows="3"
+        disabled={isSubmitting}
+      />
+      <div class="flex justify-end">
+        <Button type="submit" disabled={isSubmitting || !newComment.trim()}>
+          {isSubmitting ? "Posting..." : "Post Comment"}
+        </Button>
+      </div>
+    </form>
+
+    {#if comments.length > 0}
+      <div class="space-y-4">
+        {#each comments as comment}
+          <CommentCard
+            {comment}
+            isEditing={editingComment?.id === comment.id}
+            editContent={comment.id === editingComment?.id ? editContent : ""}
+            {isSubmitting}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
+          <Separator class="mt-4" />
+        {/each}
+      </div>
+    {:else}
+      <p class="text-center text-muted-foreground">
+        No comments yet. Be the first to comment!
+      </p>
+    {/if}
+  {/if}
+</div>
+
+<AlertDialog.Root
+  open={isDialogOpen}
+  onOpenChange={(open) => (isDialogOpen = open)}
+>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Delete Comment</AlertDialog.Title>
+      <AlertDialog.Description>
+        Are you sure you want to delete this comment? This action cannot be
+        undone.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel disabled={isDeleting}>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action
+        on:click={deleteComment}
+        disabled={isDeleting}
+        class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+      >
+        {isDeleting ? "Deleting..." : "Delete"}
+      </AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
