@@ -9,6 +9,11 @@
   // Import custom utilities
   import { updateSessionState, userId } from "./lib/stores.js";
 
+  // Import components
+  import AppShell from "./components/AppShell.svelte";
+  import CommentsModal from "./components/CommentsModal.svelte";
+  import { Toaster } from "svelte-sonner";
+
   // Import routes
   import Login from "./routes/Login.svelte";
   import Register from "./routes/Register.svelte";
@@ -49,45 +54,40 @@
       navigate("/", { replace: true });
     }
   }
+
+  // Get the base URL from the window location (for deployment in different environments)
+  export let url = "";
 </script>
 
-<Router>
+<Toaster />
+<CommentsModal />
+
+<Router {url}>
   <main>
     {#if !isLoading}
-      <Route path="/">
-        {#if $userId}
-          <Calculators />
-        {:else}
-          <Index />
-        {/if}
-      </Route>
-      <Route path="/login">
-        <Login />
-      </Route>
-      <Route path="/register">
-        <Register />
-      </Route>
-      <Route path="/courses">
-        {#if $userId}
-          <Courses />
-        {/if}
-      </Route>
-      <Route path="/calculator/:id" let:params>
-        {#if $userId}
-          <Calculator id={params.id} />
-        {/if}
-      </Route>
-      <Route path="/search">
-        {#if $userId}
-          <Search />
-        {/if}
-      </Route>
-      <Route path="/template/:id" let:params>
-        <TemplatePreview id={params.id} />
-      </Route>
-      <Route path="/user/:id" let:params>
-        <User id={params.id} />
-      </Route>
+      {#if $userId}
+        <AppShell>
+          <Route path="/" component={Calculators} />
+          <Route path="/calculator/:id" let:params>
+            <Calculator id={params.id} />
+          </Route>
+          <Route path="/courses" component={Courses} />
+          <Route path="/user/:id" let:params>
+            <User id={params.id} />
+          </Route>
+          <Route path="/search" component={Search} />
+          <Route path="/template/:id" let:params>
+            <TemplatePreview id={params.id} />
+          </Route>
+        </AppShell>
+      {:else}
+        <Route path="/" component={Index} />
+        <Route path="/login" component={Login} />
+        <Route path="/register" component={Register} />
+        <Route path="/template/:id" let:params>
+          <TemplatePreview id={params.id} />
+        </Route>
+      {/if}
     {/if}
   </main>
 </Router>
@@ -95,6 +95,11 @@
 <style>
   :global(body) {
     margin: 0;
-    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+      Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  }
+
+  :global(*, *::before, *::after) {
+    box-sizing: border-box;
   }
 </style>

@@ -1,5 +1,5 @@
 <script>
-  import { username, userId, logout } from "../lib/stores.js";
+  import { username, userId } from "../lib/stores.js";
   import { onMount } from "svelte";
   import { query, mutate } from "../lib/graphql/client.js";
   import { USER_COURSES } from "../lib/graphql/queries.js";
@@ -11,15 +11,24 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { Label } from "$lib/components/ui/label";
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-  } from "$lib/components/ui/card";
+  import * as Card from "$lib/components/ui/card";
   import { Checkbox } from "$lib/components/ui/checkbox";
+  import * as Tabs from "$lib/components/ui/tabs";
+  import * as AlertDialog from "$lib/components/ui/alert-dialog";
+  import CourseCard from "../components/CourseCard.svelte";
+  import { toast } from "svelte-sonner";
+  import {
+    sortCoursesByPrerequisites,
+    flattenSortedCourses,
+    filterCourses,
+    isPrerequisiteForOtherCourses,
+  } from "../lib/utils/courseSorting.js";
+
+  // Icons
+  import BookOpen from "lucide-svelte/icons/book-open";
+  import GraduationCap from "lucide-svelte/icons/graduation-cap";
+  import Search from "lucide-svelte/icons/search";
+  import Plus from "lucide-svelte/icons/plus";
 
   let courses = [];
   let newCourseName = "";
@@ -27,6 +36,10 @@
   let selectedPrereqs = [];
   let editingCourse = null;
   let editingPrereqs = [];
+  let deleteDialogOpen = false;
+  let courseToDelete = null;
+  let searchQuery = "";
+  let activeTab = "all";
 
   onMount(async () => {
     if ($userId) {
@@ -40,12 +53,14 @@
       courses = data.user.courses;
     } catch (error) {
       console.error("Error loading courses:", error);
+      toast.error("Failed to load courses");
     }
   }
 
   async function addCourse() {
     try {
       if (!newCourseName || newCourseName.trim() === "") {
+        toast.error("Please enter a course name");
         return;
       }
 
@@ -58,12 +73,16 @@
       if (result && result.createCourse) {
         courses = [...courses, result.createCourse];
         newCourseName = "";
+        newCourseCredits = 3.0;
         selectedPrereqs = [];
+        toast.success("Course added successfully");
       } else {
         console.error("Invalid response format:", result);
+        toast.error("Failed to add course");
       }
     } catch (error) {
       console.error("Error adding course:", error);
+      toast.error("Failed to add course");
     }
   }
 
@@ -77,8 +96,12 @@
       courses = courses.map((c) =>
         c.id === data.updateCourse.id ? data.updateCourse : c
       );
+      toast.success(
+        `Course marked as ${data.updateCourse.completed ? "completed" : "incomplete"}`
+      );
     } catch (error) {
       console.error("Error toggling course completion:", error);
+      toast.error("Failed to update course");
     }
   }
 
@@ -108,110 +131,125 @@
           c.id === data.updateCourse.id ? data.updateCourse : c
         );
         cancelEdit();
+        toast.success("Course updated successfully");
       }
     } catch (error) {
       console.error("Error saving course edit:", error);
-      alert("Failed to save course changes");
+      toast.error("Failed to update course");
     }
   }
 
-  async function deleteCourse(course) {
-    if (!confirm(`Are you sure you want to delete "${course.name}"?`)) return;
+  function confirmDelete(course) {
+    courseToDelete = course;
+    deleteDialogOpen = true;
+  }
+
+  async function deleteCourse() {
+    if (!courseToDelete) return;
 
     try {
-      const data = await mutate(DELETE_COURSE, { id: course.id });
+      const data = await mutate(DELETE_COURSE, { id: courseToDelete.id });
 
       if (data.deleteCourse) {
         courses = courses
-          .filter((c) => c.id !== course.id)
+          .filter((c) => c.id !== courseToDelete.id)
           .map((c) => ({
             ...c,
-            prerequisites: c.prerequisites.filter((p) => p.id !== course.id),
+            prerequisites: c.prerequisites.filter(
+              (p) => p.id !== courseToDelete.id
+            ),
           }));
 
-        selectedPrereqs = selectedPrereqs.filter((id) => id !== course.id);
+        selectedPrereqs = selectedPrereqs.filter(
+          (id) => id !== courseToDelete.id
+        );
         if (editingCourse) {
-          editingPrereqs = editingPrereqs.filter((id) => id !== course.id);
+          editingPrereqs = editingPrereqs.filter(
+            (id) => id !== courseToDelete.id
+          );
         }
+        toast.success("Course deleted successfully");
       }
     } catch (error) {
       console.error("Error deleting course:", error);
-      alert("Failed to delete course");
+      toast.error("Failed to delete course");
+    } finally {
+      deleteDialogOpen = false;
+      courseToDelete = null;
     }
   }
 
-  // Compute course levels based on prerequisites
-  // This creates a directed acyclic graph (DAG) of courses
-  // where each level contains courses that depend on previous levels
-  $: sortedCourses = (() => {
-    const levels = [];
-    const visited = new Set();
-    const courseMap = new Map(courses.map((c) => [c.id, c]));
+  // Compute sorted courses using the utility function
+  $: sortedCourses = sortCoursesByPrerequisites(courses);
 
-    // Recursive function to determine course level based on prerequisites
-    function getLevel(course) {
-      if (visited.has(course.id)) return;
-      visited.add(course.id);
+  // Flatten sorted courses into a single array for easier filtering
+  $: flattenedSortedCourses = flattenSortedCourses(sortedCourses);
 
-      // Find the maximum level of all prerequisites
-      let maxPrereqLevel = -1;
-      for (const prereq of course.prerequisites) {
-        if (!visited.has(prereq.id)) {
-          getLevel(courseMap.get(prereq.id));
-        }
-        const prereqLevel = levels.findIndex((level) =>
-          level.some((c) => c.id === prereq.id)
-        );
-        maxPrereqLevel = Math.max(maxPrereqLevel, prereqLevel);
-      }
+  // Apply filters to the properly sorted courses array
+  $: filteredCourses = filterCourses(
+    flattenedSortedCourses,
+    activeTab,
+    searchQuery
+  );
 
-      // Place course in next level after its highest prerequisite
-      const courseLevel = maxPrereqLevel + 1;
-      if (!levels[courseLevel]) {
-        levels[courseLevel] = [];
-      }
-      levels[courseLevel].push(course);
-    }
-
-    // Process all courses to build the level structure
-    for (const course of courses) {
-      if (!visited.has(course.id)) {
-        getLevel(course);
-      }
-    }
-
-    return levels;
-  })();
+  $: completedCount = courses.filter((c) => c.completed).length;
+  $: totalCredits = courses.reduce(
+    (sum, course) => sum + parseFloat(course.credits),
+    0
+  );
+  $: completedCredits = courses
+    .filter((c) => c.completed)
+    .reduce((sum, course) => sum + parseFloat(course.credits), 0);
 </script>
 
-<main class="container mx-auto px-4 py-8">
-  <header
-    class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8"
+<div class="bg-muted/40 min-h-screen">
+  <div class="container mx-auto px-4 py-8">
+    <header class="mb-8">
+      <div
+        class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
   >
     <div>
-      <h1 class="text-3xl font-bold tracking-tight">My Courses</h1>
+          <h1 class="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <BookOpen class="h-8 w-8 text-primary" />
+            Course Planner
+          </h1>
       <p class="text-muted-foreground">
         Welcome back, <strong>{$username}</strong>
       </p>
     </div>
-    <Button variant="outline" on:click={logout}>Logout</Button>
-  </header>
 
-  <div class="space-y-8">
-    <section class="space-y-6">
-      <div class="flex items-center justify-between">
-        <h2 class="text-3xl font-bold tracking-tight">Course Tracker</h2>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-4">
+            <div class="text-center">
+              <p class="text-sm text-muted-foreground">Total Courses</p>
+              <p class="text-2xl font-bold">{courses.length}</p>
+            </div>
+            <div class="text-center">
+              <p class="text-sm text-muted-foreground">Completed</p>
+              <p class="text-2xl font-bold">{completedCount}</p>
+            </div>
+            <div class="text-center">
+              <p class="text-sm text-muted-foreground">Total Credits</p>
+              <p class="text-2xl font-bold">{totalCredits}</p>
+            </div>
+          </div>
+        </div>
       </div>
+    </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Add New Course</CardTitle>
-          <CardDescription
-            >Add a new course and specify any prerequisites</CardDescription
-          >
-        </CardHeader>
-        <CardContent>
-          <form class="space-y-4" onsubmit="return false;">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <!-- Sidebar with Add Course Form -->
+      <div class="md:col-span-1">
+        <Card.Root>
+          <Card.Header>
+            <Card.Title class="flex items-center gap-2">
+              <Plus class="h-5 w-5" />
+              Add New Course
+            </Card.Title>
+            <Card.Description>Add courses to your planner</Card.Description>
+          </Card.Header>
+          <Card.Content>
+            <form class="space-y-4" on:submit|preventDefault={addCourse}>
             <div class="space-y-2">
               <Label for="new-course">Course Name</Label>
               <Input
@@ -219,7 +257,6 @@
                 id="new-course"
                 bind:value={newCourseName}
                 placeholder="Enter course name"
-                on:keydown={(e) => e.key === "Enter" && addCourse()}
               />
             </div>
 
@@ -239,7 +276,7 @@
               <div class="space-y-2">
                 <Label>Prerequisites</Label>
                 <div
-                  class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"
+                    class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-md p-2"
                 >
                   {#each courses as course}
                     <div class="flex items-center space-x-2">
@@ -256,49 +293,158 @@
                           }
                         }}
                       />
-                      <Label for={`prereq-${course.id}`} class="cursor-pointer"
-                        >{course.name}</Label
+                        <Label
+                          for={`prereq-${course.id}`}
+                          class="cursor-pointer"
                       >
+                          {course.name}
+                        </Label>
                     </div>
                   {/each}
                 </div>
               </div>
             {/if}
           </form>
-        </CardContent>
-        <CardFooter>
-          <Button on:click={addCourse}>Add Course</Button>
-        </CardFooter>
-      </Card>
+          </Card.Content>
+          <Card.Footer>
+            <Button on:click={addCourse} class="w-full">
+              <Plus class="h-4 w-4 mr-2" />
+              Add Course
+            </Button>
+          </Card.Footer>
+        </Card.Root>
 
-      {#if courses.length > 0}
+        <div class="mt-6">
+          <Card.Root>
+            <Card.Header>
+              <Card.Title class="flex items-center gap-2">
+                <GraduationCap class="h-5 w-5" />
+                Progress Summary
+              </Card.Title>
+            </Card.Header>
+            <Card.Content>
         <div class="space-y-4">
-          {#each sortedCourses as level}
+                <div>
+                  <div class="flex justify-between text-sm mb-1">
+                    <span>Courses Completed</span>
+                    <span>{completedCount} / {courses.length}</span>
+                  </div>
+                  <div class="h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      class="h-full bg-primary rounded-full"
+                      style="width: {courses.length
+                        ? (completedCount / courses.length) * 100
+                        : 0}%"
+                    ></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-sm mb-1">
+                    <span>Credits Completed</span>
+                    <span>{completedCredits} / {totalCredits}</span>
+                  </div>
+                  <div class="h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      class="h-full bg-primary rounded-full"
+                      style="width: {totalCredits
+                        ? (completedCredits / totalCredits) * 100
+                        : 0}%"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </Card.Content>
+          </Card.Root>
+        </div>
+      </div>
+
+      <!-- Main Course List -->
+      <div class="md:col-span-2">
+        <div
+          class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6"
+        >
+          <Tabs.Root bind:value={activeTab} class="w-full">
+            <Tabs.List class="w-full sm:w-auto">
+              <Tabs.Trigger value="all">All Courses</Tabs.Trigger>
+              <Tabs.Trigger value="completed">Completed</Tabs.Trigger>
+              <Tabs.Trigger value="incomplete">In Progress</Tabs.Trigger>
+            </Tabs.List>
+          </Tabs.Root>
+
+          <div class="relative w-full sm:w-80">
+            <Search
+              class="text-muted-foreground absolute left-2.5 top-2.5 h-4 w-4"
+            />
+            <Input
+              type="search"
+              placeholder="Search courses..."
+              class="pl-8 w-full"
+              bind:value={searchQuery}
+            />
+          </div>
+        </div>
+
+        {#if filteredCourses.length > 0}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {#each filteredCourses as course}
+              <CourseCard
+                {course}
+                onDelete={confirmDelete}
+                onEdit={startEdit}
+                onToggleComplete={toggleComplete}
+              />
+            {/each}
+          </div>
+        {:else}
+          <div class="text-center py-12 bg-background rounded-lg border">
+            <GraduationCap
+              class="h-12 w-12 mx-auto text-muted-foreground mb-4"
+            />
+            {#if searchQuery}
+              <p class="text-muted-foreground">No courses match your search.</p>
+            {:else if activeTab !== "all"}
+              <p class="text-muted-foreground">No {activeTab} courses found.</p>
+            {:else}
+              <p class="text-muted-foreground">
+                No courses added yet. Add your first course to get started!
+              </p>
+            {/if}
+          </div>
+        {/if}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Course Dialog -->
+{#if editingCourse}
+  <AlertDialog.Root
+    open={!!editingCourse}
+    onOpenChange={(open) => !open && cancelEdit()}
+  >
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title>Edit Course</AlertDialog.Title>
+        <AlertDialog.Description>
+          Make changes to your course information.
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <div class="space-y-4 py-4">
             <div class="space-y-2">
-              {#each level as course}
-                <Card class={course.completed ? "bg-muted" : ""}>
-                  {#if editingCourse?.id === course.id}
-                    <CardContent class="p-4">
-                      <form class="space-y-4">
-                        <div class="space-y-2">
-                          <Label for={`edit-course-${course.id}`}
-                            >Course Name</Label
-                          >
+          <Label for="edit-course-name">Course Name</Label>
                           <Input
                             type="text"
-                            id={`edit-course-${course.id}`}
+            id="edit-course-name"
                             bind:value={editingCourse.name}
-                            placeholder="Course name"
+            placeholder="Enter course name"
                           />
                         </div>
 
                         <div class="space-y-2">
-                          <Label for={`edit-course-credits-${course.id}`}
-                            >Credits</Label
-                          >
+          <Label for="edit-course-credits">Credits</Label>
                           <Input
                             type="number"
-                            id={`edit-course-credits-${course.id}`}
+            id="edit-course-credits"
                             bind:value={editingCourse.credits}
                             min="0"
                             step="0.5"
@@ -306,102 +452,76 @@
                           />
                         </div>
 
+        {#if courses.length > 1}
                         <div class="space-y-2">
                           <Label>Prerequisites</Label>
                           <div
-                            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"
+              class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-md p-2"
                           >
-                            {#each courses.filter((c) => c.id !== course.id) as prereq}
+              {#each courses.filter((c) => c.id !== editingCourse.id) as course}
                               <div class="flex items-center space-x-2">
                                 <Checkbox
-                                  id={`edit-prereq-${course.id}-${prereq.id}`}
-                                  checked={editingPrereqs.includes(prereq.id)}
+                    id={`edit-prereq-${course.id}`}
+                    checked={editingPrereqs.includes(course.id)}
                                   onCheckedChange={(checked) => {
                                     if (checked) {
-                                      editingPrereqs = [
-                                        ...editingPrereqs,
-                                        prereq.id,
-                                      ];
+                        editingPrereqs = [...editingPrereqs, course.id];
                                     } else {
                                       editingPrereqs = editingPrereqs.filter(
-                                        (id) => id !== prereq.id
+                          (id) => id !== course.id
                                       );
                                     }
                                   }}
                                 />
                                 <Label
-                                  for={`edit-prereq-${course.id}-${prereq.id}`}
+                    for={`edit-prereq-${course.id}`}
                                   class="cursor-pointer"
                                 >
-                                  {prereq.name}
+                    {course.name}
                                 </Label>
                               </div>
                             {/each}
                           </div>
-                        </div>
-
-                        <div class="flex justify-end gap-2">
-                          <Button variant="outline" on:click={cancelEdit}
-                            >Cancel</Button
-                          >
-                          <Button on:click={() => saveEdit(course)}>Save</Button
-                          >
-                        </div>
-                      </form>
-                    </CardContent>
-                  {:else}
-                    <CardContent class="p-4">
-                      <div class="flex justify-between items-center">
-                        <div class="flex items-center space-x-2">
-                          <Checkbox
-                            id={`complete-${course.id}`}
-                            checked={course.completed}
-                            onCheckedChange={(checked) =>
-                              toggleComplete(course)}
-                          />
-                          <Label
-                            for={`complete-${course.id}`}
-                            class="text-lg font-medium cursor-pointer"
-                          >
-                            {course.name}
-                          </Label>
-                        </div>
-                        <div class="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            on:click={() => startEdit(course)}>Edit</Button
-                          >
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            on:click={() => deleteCourse(course)}>Delete</Button
-                          >
-                        </div>
-                      </div>
-
-                      <div class="mt-2 text-sm text-muted-foreground">
-                        <div>Credits: {course.credits}</div>
-                        {#if course.prerequisites.length > 0}
-                          <div>
-                            Prerequisites: {course.prerequisites
-                              .map((p) => p.name)
-                              .join(", ")}
                           </div>
                         {/if}
                       </div>
-                    </CardContent>
+      <AlertDialog.Footer>
+        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+        <AlertDialog.Action on:click={() => saveEdit(editingCourse)}>
+          Save Changes
+        </AlertDialog.Action>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog.Root>
                   {/if}
-                </Card>
-              {/each}
-            </div>
-          {/each}
-        </div>
-      {:else}
-        <div class="text-center py-10">
-          <p class="text-muted-foreground">No courses added yet.</p>
+
+<!-- Delete Course Dialog -->
+<AlertDialog.Root
+  open={deleteDialogOpen}
+  onOpenChange={(open) => (deleteDialogOpen = open)}
+>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Delete Course</AlertDialog.Title>
+      <AlertDialog.Description>
+        Are you sure you want to delete this course? This action cannot be
+        undone.
+        {#if courseToDelete && isPrerequisiteForOtherCourses(courses, courseToDelete.id)}
+          <div class="mt-2 text-red-500">
+            Warning: This course is a prerequisite for other courses. Deleting
+            it will remove it from their prerequisites.
         </div>
       {/if}
-    </section>
-  </div>
-</main>
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action
+        on:click={deleteCourse}
+        class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+      >
+        Delete
+      </AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>

@@ -1,22 +1,23 @@
 <script>
-  import { navigate } from "svelte-routing";
   import debounce from "lodash/debounce";
-  import Comments from "../components/Comments.svelte";
-  import VoteButtons from "../components/VoteButtons.svelte";
-  import { query, mutate } from "../lib/graphql/client.js";
+  import { query } from "../lib/graphql/client.js";
   import { ALL_TEMPLATES } from "../lib/graphql/queries.js";
-  import { USE_TEMPLATE } from "../lib/graphql/mutations.js";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { Label } from "$lib/components/ui/label";
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-  } from "$lib/components/ui/card";
+  import * as Card from "$lib/components/ui/card";
+  import { Badge } from "$lib/components/ui/badge";
+  import { toast } from "svelte-sonner";
+  import TemplateCard from "../components/TemplateCard.svelte";
+
+  // Icons
+  import ChevronLeft from "lucide-svelte/icons/chevron-left";
+  import ChevronRight from "lucide-svelte/icons/chevron-right";
+  import Search from "lucide-svelte/icons/search";
+  import CalendarDays from "lucide-svelte/icons/calendar-days";
+  import Building from "lucide-svelte/icons/building";
+  import Filter from "lucide-svelte/icons/filter";
+  import FilePlus from "lucide-svelte/icons/file-plus";
 
   let searchQuery = "";
   let term = "";
@@ -26,11 +27,12 @@
   let currentPage = 1;
   let totalPages = 1;
   let totalResults = 0;
+  let isLoading = false;
   const ITEMS_PER_PAGE = 10;
-  let activeComments = null;
 
   const debouncedSearch = debounce(async () => {
     try {
+      isLoading = true;
       // Convert year to number if it's not empty
       const yearNum = year ? parseInt(year) : undefined;
 
@@ -48,6 +50,9 @@
       totalPages = Math.ceil(totalResults / ITEMS_PER_PAGE);
     } catch (error) {
       console.error("Error searching templates:", error);
+      toast.error("Failed to search templates");
+    } finally {
+      isLoading = false;
     }
   }, 300);
 
@@ -59,175 +64,230 @@
   function changePage(newPage) {
     currentPage = newPage;
     debouncedSearch();
-  }
-
-  async function useTemplate(templateId) {
-    try {
-      const data = await mutate(USE_TEMPLATE, { templateId });
-      if (data.useTemplate) {
-        navigate(`/calculator/${data.useTemplate.id}`);
-      } else {
-        console.error("Failed to use template");
-      }
-    } catch (error) {
-      console.error("Error using template:", error);
-      alert("Failed to use template");
+    // Scroll to top of results
+    const resultSection = document.getElementById("search-results");
+    if (resultSection) {
+      resultSection.scrollIntoView({ behavior: "smooth" });
     }
   }
 
-  function toggleComments(templateId) {
-    activeComments = activeComments === templateId ? null : templateId;
+  function handleTemplateDelete(templateId) {
+    templates = templates.filter((t) => t.id !== templateId);
+    if (templates.length === 0 && totalResults > 0) {
+      totalResults--;
+      totalPages = Math.ceil(totalResults / ITEMS_PER_PAGE);
+      // If we're on a page that no longer exists, go back to the last page
+      if (currentPage > totalPages && totalPages > 0) {
+        changePage(totalPages);
+      } else {
+        // Otherwise, refresh the current page
+        debouncedSearch();
+      }
+    }
+  }
+
+  function clearFilters() {
+    searchQuery = "";
+    term = "";
+    year = "";
+    institution = "";
+    handleSearch();
   }
 
   // Initial search on mount
   debouncedSearch();
 </script>
 
-<main class="container mx-auto px-4 py-8">
-  <header class="mb-8">
-    <h1 class="text-3xl font-bold tracking-tight">
-      Search Calculator Templates
-    </h1>
-  </header>
-
-  <Card class="mb-8">
-    <CardHeader>
-      <CardTitle>Search Filters</CardTitle>
-      <CardDescription
-        >Find the perfect grade calculator template for your needs</CardDescription
+<div class="bg-muted/40 min-h-screen">
+  <div class="container mx-auto px-4 py-8">
+    <header class="mb-8">
+      <div
+        class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
-    </CardHeader>
-    <CardContent>
-      <form
-        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
-        onsubmit="return false;"
-      >
-        <div class="space-y-2">
-          <Label for="search-query">Search Templates</Label>
-          <Input
-            type="search"
-            id="search-query"
-            bind:value={searchQuery}
-            placeholder="Search by name..."
-            on:input={handleSearch}
-          />
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Search class="h-8 w-8 text-primary" />
+            Template Library
+          </h1>
+          <p class="text-muted-foreground">
+            Find the perfect grade calculator template for your courses
+          </p>
         </div>
 
-        <div class="space-y-2">
-          <Label for="term">Term</Label>
-          <Input
-            type="text"
-            id="term"
-            bind:value={term}
-            placeholder="Term (e.g. Fall, Spring)"
-            on:input={handleSearch}
-          />
-        </div>
-
-        <div class="space-y-2">
-          <Label for="year">Year</Label>
-          <Input
-            type="number"
-            id="year"
-            bind:value={year}
-            placeholder="Year"
-            on:input={handleSearch}
-          />
-        </div>
-
-        <div class="space-y-2">
-          <Label for="institution">Institution</Label>
-          <Input
-            type="text"
-            id="institution"
-            bind:value={institution}
-            placeholder="Institution"
-            on:input={handleSearch}
-          />
-        </div>
-      </form>
-    </CardContent>
-  </Card>
-
-  <section class="space-y-6">
-    {#if templates.length > 0}
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {#each templates as template}
-          <div>
-            <Card class="w-full">
-              <CardHeader>
-                <CardTitle>{template.name}</CardTitle>
-                <CardDescription>
-                  <p>
-                    {template.institution} - {template.term}
-                    {template.year}
-                  </p>
-                  <p>Created by {template.creator.username}</p>
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div class="flex justify-between items-center mb-3">
-                  <VoteButtons
-                    voteCount={template.vote_count}
-                    userVote={template.user_vote}
-                    creatorId={template.creator.id}
-                    templateId={template.id}
-                  />
-
-                  <Button
-                    variant="default"
-                    size="sm"
-                    on:click={() => useTemplate(template.id)}
-                  >
-                    Use Template
-                  </Button>
-                </div>
-
-                <div class="flex justify-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    on:click={() => toggleComments(template.id)}
-                  >
-                    {activeComments === template.id ? "Hide" : "Show"} Comments
-                  </Button>
-                </div>
-              </CardContent>
-              {#if activeComments === template.id}
-                <CardFooter>
-                  <Comments templateId={template.id} />
-                </CardFooter>
-              {/if}
-            </Card>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-4">
+            <div class="text-center">
+              <p class="text-sm text-muted-foreground">Found</p>
+              <p class="text-2xl font-bold">{totalResults}</p>
+            </div>
+            <div class="text-center">
+              <p class="text-sm text-muted-foreground">Pages</p>
+              <p class="text-2xl font-bold">{totalPages}</p>
+            </div>
           </div>
-        {/each}
+        </div>
       </div>
+    </header>
 
-      <div class="flex justify-center items-center gap-4">
-        <Button
-          variant="outline"
-          on:click={() => changePage(currentPage - 1)}
-          disabled={currentPage <= 1}
-        >
-          Previous
-        </Button>
-        <span class="text-sm text-muted-foreground">
-          Page {currentPage} of {totalPages}
-        </span>
-        <Button
-          variant="outline"
-          on:click={() => changePage(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-        >
-          Next
-        </Button>
+    <div class="mb-8">
+      <Card.Root>
+        <Card.Header>
+          <Card.Title class="flex items-center gap-2">
+            <Filter class="h-5 w-5" />
+            Search Filters
+          </Card.Title>
+          <Card.Description>
+            Narrow down templates by name, term, year, or institution
+          </Card.Description>
+        </Card.Header>
+        <Card.Content>
+          <form
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+            on:submit|preventDefault={handleSearch}
+          >
+            <div class="space-y-2">
+              <Label for="search-query" class="flex items-center gap-2">
+                <Search class="h-4 w-4" />
+                <span>Search Templates</span>
+              </Label>
+              <Input
+                type="search"
+                id="search-query"
+                bind:value={searchQuery}
+                placeholder="Search by name..."
+                on:input={handleSearch}
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="term" class="flex items-center gap-2">
+                <CalendarDays class="h-4 w-4" />
+                <span>Term</span>
+              </Label>
+              <Input
+                type="text"
+                id="term"
+                bind:value={term}
+                placeholder="Term (e.g. Fall, Spring)"
+                on:input={handleSearch}
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="year" class="flex items-center gap-2">
+                <CalendarDays class="h-4 w-4" />
+                <span>Year</span>
+              </Label>
+              <Input
+                type="number"
+                id="year"
+                bind:value={year}
+                placeholder="Year"
+                on:input={handleSearch}
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="institution" class="flex items-center gap-2">
+                <Building class="h-4 w-4" />
+                <span>Institution</span>
+              </Label>
+              <Input
+                type="text"
+                id="institution"
+                bind:value={institution}
+                placeholder="Institution"
+                on:input={handleSearch}
+              />
+            </div>
+          </form>
+        </Card.Content>
+        <Card.Footer class="flex justify-between">
+          <Button variant="outline" on:click={clearFilters}>
+            Clear Filters
+          </Button>
+          <Button on:click={handleSearch}>
+            <Search class="h-4 w-4 mr-2" />
+            Search
+          </Button>
+        </Card.Footer>
+      </Card.Root>
+    </div>
+
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-2xl font-semibold" id="search-results">Results</h2>
+      <div class="flex items-center gap-2">
+        {#if totalResults > 0}
+          <Badge variant="outline">
+            Showing {templates.length} of {totalResults} templates
+          </Badge>
+        {/if}
       </div>
-    {:else}
-      <div class="text-center py-10">
-        <p class="text-muted-foreground">
-          No templates found matching your search.
-        </p>
-      </div>
-    {/if}
-  </section>
-</main>
+    </div>
+
+    <section class="space-y-6">
+      {#if isLoading}
+        <div class="text-center py-10 bg-background rounded-lg border">
+          <div class="animate-pulse flex flex-col items-center justify-center">
+            <div class="w-12 h-12 rounded-full bg-muted mb-4"></div>
+            <div class="h-4 w-32 bg-muted rounded mb-4"></div>
+            <div class="h-3 w-40 bg-muted rounded"></div>
+          </div>
+        </div>
+      {:else if templates.length > 0}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {#each templates as template}
+            <TemplateCard {template} onDelete={handleTemplateDelete} />
+          {/each}
+        </div>
+
+        <div class="flex justify-center items-center gap-4 py-4">
+          <Button
+            variant="outline"
+            class="flex items-center gap-1"
+            on:click={() => changePage(currentPage - 1)}
+            disabled={currentPage <= 1}
+          >
+            <ChevronLeft class="h-4 w-4" />
+            <span>Previous</span>
+          </Button>
+
+          <div class="px-4 py-2 rounded-md bg-background border">
+            <span class="font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+          </div>
+
+          <Button
+            variant="outline"
+            class="flex items-center gap-1"
+            on:click={() => changePage(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+          >
+            <span>Next</span>
+            <ChevronRight class="h-4 w-4" />
+          </Button>
+        </div>
+      {:else}
+        <div class="text-center py-16 bg-background rounded-lg border">
+          <FilePlus class="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          {#if searchQuery || term || year || institution}
+            <p class="text-lg font-medium mb-2">No matching templates found</p>
+            <p class="text-muted-foreground">
+              Try adjusting your search filters or clear them to see all
+              templates.
+            </p>
+            <Button variant="outline" class="mt-4" on:click={clearFilters}>
+              Clear All Filters
+            </Button>
+          {:else}
+            <p class="text-lg font-medium mb-2">No templates available</p>
+            <p class="text-muted-foreground">
+              Please check back later or create your own template.
+            </p>
+          {/if}
+        </div>
+      {/if}
+    </section>
+  </div>
+</div>
