@@ -2,15 +2,7 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { Label } from "$lib/components/ui/label";
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-  } from "$lib/components/ui/card";
-  import { toast, Toaster } from "svelte-sonner";
+  import { toast } from "svelte-sonner";
   import { navigate, Link } from "svelte-routing";
   import { updateSessionState } from "../lib/stores.js";
   import { mutate } from "../lib/graphql/client.js";
@@ -57,19 +49,17 @@
   }
 </script>
 
-<Toaster />
-
-<main class="login-page">
-  <Card class="w-full max-w-md mx-auto">
-    <CardHeader>
-      <CardTitle>Login</CardTitle>
-      <CardDescription
-        >Enter your credentials to access your account</CardDescription
-      >
-    </CardHeader>
-    <CardContent>
-      <form on:submit={handleSubmit} class="space-y-4">
-        <div class="space-y-2">
+<div class="w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden">
+  <div class="flex items-center justify-center py-12">
+    <div class="mx-auto grid w-[350px] gap-6">
+      <div class="grid gap-2 text-center">
+        <h1 class="text-3xl font-bold">Login</h1>
+        <p class="text-muted-foreground text-balance">
+          Enter your credentials to access your account
+        </p>
+      </div>
+      <form on:submit={handleSubmit} class="grid gap-4">
+        <div class="grid gap-2">
           <Label for="username">Username</Label>
           <Input
             type="text"
@@ -80,7 +70,7 @@
             autocomplete="username"
           />
         </div>
-        <div class="space-y-2">
+        <div class="grid gap-2">
           <Label for="password">Password</Label>
           <Input
             type="password"
@@ -93,14 +83,17 @@
         </div>
         <Button type="submit" class="w-full">Login</Button>
       </form>
-    </CardContent>
-    <CardFooter class="flex justify-center">
-      <p class="text-sm text-muted-foreground">
-        Don't have an account yet? <Link
-          to="/register"
-          class="text-primary hover:underline">Register</Link
-        >
-      </p>
-    </CardFooter>
-  </Card>
-</main>
+      <div class="text-center text-sm">
+        Don't have an account yet?
+        <Link to="/register" class="text-primary underline">Register</Link>
+      </div>
+    </div>
+  </div>
+  <div class="bg-muted hidden lg:block">
+    <img
+      src="https://placehold.co/720x1080"
+      alt="placeholder"
+      class="w-full h-screen object-cover dark:brightness-[0.2] dark:grayscale"
+    />
+  </div>
+</div>
