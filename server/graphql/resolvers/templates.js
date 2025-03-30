@@ -249,7 +249,7 @@ export const templateQueries = {
       .get(templateId);
     if (!templateExists) {
       logger.warn(
-        `Attempted to fetch comments for non-existent template: ${templateId}`
+        `Attempted to fetch comments for non-existent or deleted template: ${templateId}`
       );
       throw new GraphQLError("Template not found or deleted", {
         extensions: { code: "NOT_FOUND" },
@@ -1035,6 +1035,11 @@ export const templateTypeResolvers = {
      * @returns {Array} - Array of comment objects
      */
     comments: (template, _args, context) => {
+      // Don't fetch comments if template is deleted
+      if (template.deleted === 1) {
+        return [];
+      }
+
       logger.debug(
         `Fetching comments for template ID (nested): ${template.id}`
       );

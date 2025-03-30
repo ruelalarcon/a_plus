@@ -41,7 +41,7 @@ export const userQueries = {
         FROM template_comments c
         JOIN calculator_templates t ON c.template_id = t.id
         JOIN users u ON c.user_id = u.id
-        WHERE c.user_id = ?
+        WHERE c.user_id = ? AND t.deleted = 0
         ORDER BY c.created_at DESC
         `
       )
@@ -143,6 +143,7 @@ export const userTypeResolvers = {
       logger.debug(`Fetching comments for user ID: ${user.id}`);
 
       // Query to get all user's comments with template information
+      // Exclude comments on deleted templates
       const comments = db
         .prepare(
           `
@@ -152,7 +153,7 @@ export const userTypeResolvers = {
               t.id as template_id
           FROM template_comments c
           JOIN calculator_templates t ON c.template_id = t.id
-          WHERE c.user_id = ?
+          WHERE c.user_id = ? AND t.deleted = 0
           ORDER BY c.created_at DESC
           `
         )

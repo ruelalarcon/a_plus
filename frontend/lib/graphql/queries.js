@@ -126,6 +126,17 @@ export const CALCULATOR = /* GraphQL */ `
         term
         year
         institution
+        vote_count
+        user_vote
+        creator {
+          id
+          username
+        }
+        assessments {
+          id
+          name
+          weight
+        }
       }
     }
   }
