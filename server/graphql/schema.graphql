@@ -1,0 +1,210 @@
+# Base scalar types
+scalar DateTime
+
+# User type based on the users table
+type User {
+  id: ID!
+  username: String!
+  templates: [CalculatorTemplate!]! # Templates created by this user
+  courses: [Course!]! # Courses owned by this user
+  comments: [TemplateComment!]! # Comments made by this user
+  calculators: [Calculator!]! # Calculators owned by this user
+}
+
+# Assessment type based on the assessments table
+type Assessment {
+  id: ID!
+  name: String!
+  weight: Float! # Using Float for DECIMAL(5,2)
+  grade: Float # Optional grade
+}
+
+# Template Assessment type based on the template_assessments table
+type TemplateAssessment {
+  id: ID!
+  # template: CalculatorTemplate! # Link back to Template
+  name: String!
+  weight: Float! # Using Float for DECIMAL(5,2)
+}
+
+# Template Comment type based on the template_comments table
+type TemplateComment {
+  id: ID!
+  template: CalculatorTemplate! # Link to the commented-on template
+  author: User! # Link to the comment author
+  content: String!
+  created_at: String! # Using String for now
+  updated_at: String! # Using String for now
+}
+
+# Calculator Template type based on the calculator_templates table
+type CalculatorTemplate {
+  id: ID!
+  creator: User! # Link to the creator User
+  name: String!
+  term: String!
+  year: Int!
+  institution: String!
+  vote_count: Int!
+  user_vote: Int # User's vote (-1, 0, or 1) - requires join in resolver
+  deleted: Boolean!
+  created_at: String! # Using String for now
+  assessments: [TemplateAssessment!]! # List of assessments for this template
+  comments: [TemplateComment!]! # List of comments on this template
+  # comment_count: Int! # Add count for efficiency
+  # Add comments later
+}
+
+# Calculator type based on the calculators table
+type Calculator {
+  id: ID!
+  user: User! # Link to the owner User
+  name: String!
+  template_id: ID # Optional reference to template ID
+  template: CalculatorTemplate # Optional reference to the actual template object
+  min_desired_grade: Float # Optional
+  created_at: String!
+  assessments: [Assessment!]! # List of assessments for this calculator
+}
+
+# Course type based on the courses table
+type Course {
+  id: ID!
+  user: User! # Link to the owner User
+  name: String!
+  credits: Float! # Credit amount for the course
+  completed: Boolean!
+  created_at: String! # Using String for now
+  prerequisites: [Course!]! # List of prerequisite courses
+}
+
+# Input type for creating/updating assessments within a calculator
+input AssessmentInput {
+  # id: ID # Optional ID for updating existing assessments
+  name: String!
+  weight: Float!
+  grade: Float # Optional grade
+}
+
+# Input type for defining assessments when creating a template
+input TemplateAssessmentInput {
+  name: String!
+  weight: Float!
+}
+
+# Type definition for paginated template results
+type TemplatesPage {
+  templates: [CalculatorTemplate!]!
+  total: Int!
+  page: Int!
+  limit: Int!
+}
+
+# Define the entry points for queries
+type Query {
+  # Get a specific user by ID (useful for admins or profile pages, maybe restrict later)
+  user(id: ID!): User
+
+  # Get the currently logged-in user
+  me: User # Returns null if not logged in
+  # Get a specific calculator by ID (assuming authenticated user owns it)
+  calculator(id: ID!): Calculator
+
+  # Get a specific template by ID
+  template(id: ID!): CalculatorTemplate
+
+  # Search/filter templates with pagination
+  allTemplates(
+    query: String # Search term for name/term/institution
+    term: String
+    year: Int
+    institution: String
+    page: Int = 1 # Default to page 1
+    limit: Int = 20 # Default to 20 per page
+  ): TemplatesPage! # Return paginated result type
+  # Get all comments created by a specific user
+  userComments(userId: ID!): [TemplateComment!]
+
+  # Get a specific course by ID (assuming authenticated user owns it)
+  course(id: ID!): Course
+
+  # Get comments for a specific template
+  templateComments(templateId: ID!): [TemplateComment!]
+
+  # A simple test query (can remove later)
+  health: String
+}
+
+# Define the entry points for mutations
+type Mutation {
+  # --- Auth Mutations ---
+  register(username: String!, password: String!): User # Return the newly registered user
+  login(username: String!, password: String!): User # Return the logged-in user
+  logout: Boolean # Return true on successful logout
+  # --- Calculator Mutations ---
+
+  # Create a new calculator
+  createCalculator(
+    name: String!
+    min_desired_grade: Float # Optional # Assessments are typically added/updated via updateCalculator
+  ): Calculator
+
+  # Update an existing calculator (including its assessments)
+  updateCalculator(
+    id: ID!
+    name: String
+    min_desired_grade: Float
+    assessments: [AssessmentInput!] # Allow updating assessments
+  ): Calculator # Return the updated calculator
+  # Delete a calculator
+  deleteCalculator(id: ID!): Boolean # Return true if successful
+  # --- Template Mutations ---
+
+  # Create a new template
+  createTemplate(
+    name: String!
+    term: String!
+    year: Int!
+    institution: String!
+    assessments: [TemplateAssessmentInput!]!
+  ): CalculatorTemplate # Return the created template
+  # Soft delete a template (only owner can delete)
+  deleteTemplate(id: ID!): Boolean # Return true if successful
+  # Create a calculator instance from a template
+  useTemplate(templateId: ID!): Calculator # Return the newly created calculator
+  # Vote on a template (up: 1, down: -1)
+  voteTemplate(
+    templateId: ID!
+    vote: Int! # Should be 1 or -1
+  ): CalculatorTemplate # Return updated template (with new vote count)
+  # Remove vote from a template
+  removeTemplateVote(templateId: ID!): CalculatorTemplate # Return updated template
+  # --- Course Mutations ---
+
+  # Create a new course
+  createCourse(
+    name: String!
+    credits: Float!
+    prerequisiteIds: [ID!] # Optional array of prerequisite course IDs
+  ): Course # Return the created course
+  # Update an existing course
+  updateCourse(
+    id: ID!
+    name: String
+    credits: Float
+    completed: Boolean
+    prerequisiteIds: [ID!] # Allow updating prerequisites (pass empty array to remove all)
+  ): Course # Return the updated course
+  # Delete a course
+  deleteCourse(id: ID!): Boolean # Return true if successful
+  # --- Template Comment Mutations ---
+
+  # Add a comment to a template
+  addTemplateComment(templateId: ID!, content: String!): TemplateComment # Return the created comment
+  # Update a comment (only author can update)
+  updateTemplateComment(commentId: ID!, content: String!): TemplateComment # Return the updated comment
+  # Delete a comment (only author can delete)
+  deleteTemplateComment(commentId: ID!): Boolean # Return true if successful
+
+  # Add other mutations later (auth, comments, etc.)
+}

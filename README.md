@@ -1,4 +1,4 @@
-# Grade Calculator App
+# Grade Calculator App (A+Plus)
 
 A web application for students to track course grades, share grade calculation templates, and manage course prerequisites.
 
@@ -21,6 +21,7 @@ A web application for students to track course grades, share grade calculation t
    ```bash
    npm run dev
    ```
+   This will build the frontend and start the server.
 
 4. Access the app at http://localhost:3000
 
@@ -51,18 +52,20 @@ server/
     calculators.test.js   # Calculator endpoint tests
     courses.test.js       # Course endpoint tests
     templates.test.js     # Template endpoint tests
+    users.test.js         # User endpoint tests
     test-helpers.js       # Helper functions for tests
     setup.js              # Setup for individual test files
 frontend/
   __tests__/              # Frontend test files
     utils/
       gradeCalculations.test.js  # Tests for grade calculation utilities
+      courseSorting.test.js      # Tests for course sorting utilities
 jest.config.js            # Jest configuration
 jest.setup.js             # Global test setup and teardown
 babel.config.js           # Babel configuration for testing
 ```
 
-The test suite covers both backend API endpoints and frontend utility functions:
+The test suite covers both backend API endpoints and frontend utility functions.
 
 ## Core Features
 
@@ -82,6 +85,7 @@ The test suite covers both backend API endpoints and frontend utility functions:
 ### Course Tracking
 - Track courses and their prerequisites
 - Mark courses as completed
+- Track credit hours for each course
 - Visualize course dependencies in levels
 - Prevent circular prerequisites
 
@@ -104,7 +108,7 @@ The test suite covers both backend API endpoints and frontend utility functions:
 - After authentication, users are redirected to their intended destination
 - Authenticated users are redirected from auth pages to dashboard
 
-### Backend (Express + SQLite)
+### Backend (Express + SQLite + GraphQL)
 
 #### Database Schema
 
@@ -122,109 +126,80 @@ Templates:
 - template_comments: id, template_id, user_id, content, created_at, updated_at
 
 Course Tracking:
-- courses: id, user_id, name, completed, created_at
+- courses: id, user_id, name, credits, completed, created_at
 - course_prerequisites: course_id, prerequisite_id
 
-#### API Endpoints
+#### API Architecture
 
-Authentication:
-- POST /api/register
-  - Body: { username, password }
-  - Password must be at least 6 characters
-  - Returns: { success: true } or error
-- POST /api/login
-  - Body: { username, password }
-  - Creates session cookie
-  - Returns: { success: true } or error
-- POST /api/logout
-  - Destroys session
-- GET /api/user
-  - Returns: { userId, username } or 401 if not logged in
+The application uses GraphQL for its API, providing a single endpoint for all operations:
 
-Calculators:
-- GET /api/calculators
-  - Returns array of user's calculators with assessments
-  - Each calculator includes: id, name, min_desired_grade, assessments[]
-- POST /api/calculators
-  - Body: { name, min_desired_grade? }
-  - min_desired_grade is optional decimal value
-  - Returns: { id, name, min_desired_grade }
-- GET /api/calculators/:id
-  - Returns calculator with assessments and template info if based on template
-- PUT /api/calculators/:id
-  - Body: { name? } or { min_desired_grade? } or { assessments: [{name, weight, grade}] }
-  - Can update name, min_desired_grade, or assessments separately
-- DELETE /api/calculators/:id
-  - Deletes calculator and its assessments
+- `POST /graphql`
+  - All data operations are performed through this endpoint
+  - Accepts GraphQL queries and mutations in the request body
+  - Authentication is managed through sessions
 
-Templates:
-- POST /api/templates
-  - Body: { name, term, year, institution, assessments: [{name, weight}] }
-  - Creates template and adds creator's upvote
-  - Returns: { id }
-- GET /api/templates/search
-  - Query params: query, term, year, institution, page, limit
-  - Returns: { templates[], total, page, limit }
-  - Templates include vote status and creator info
-- POST /api/templates/:id/use
-  - Creates new calculator from template
-  - Copies assessment structure without grades
-  - Returns: { id } of new calculator
-- POST /api/templates/:id/vote
-  - Body: { vote: 1 or -1 }
-  - Updates vote count atomically
-  - Returns: { vote_count, user_vote }
-- GET /api/templates/:id/comments
-  - Returns array of comments with usernames and timestamps
-  - Ordered by creation date descending
-  - Each comment includes: id, content, username, created_at, updated_at
-- POST /api/templates/:id/comments
-  - Body: { content }
-  - Content cannot be empty
-  - Returns new comment with username and timestamps
-  - Automatically associates with current user
-- PUT /api/templates/:id/comments/:commentId
-  - Body: { content }
-  - Can only edit own comments
-  - Content cannot be empty
-  - Returns updated comment with new updated_at timestamp
-- DELETE /api/templates/:id/comments/:commentId
-  - Can only delete own comments
-  - Returns success message
-  - Permanently removes comment
+GraphQL Schema includes:
 
-Courses:
-- GET /api/courses
-  - Returns array of courses with prerequisites
-  - Courses include completion status
-- POST /api/courses
-  - Body: { name, prerequisiteIds: [] }
-  - Returns new course with prerequisites
-- PUT /api/courses/:id
-  - Body: { name?, completed?, prerequisiteIds? }
-  - Can update fields independently
-  - Returns updated course with prerequisites
+**Queries:**
+- `me`: Get the current logged-in user's ID and username
+- `user(id: ID!)`: Get a specific user by ID, returns user details
+- `calculator(id: ID!)`: Get a specific calculator with its assessments, min_desired_grade, and associated template
+- `template(id: ID!)`: Get a specific template with assessments, creator details, and voting information
+- `allTemplates(query: String, term: String, year: Int, institution: String, page: Int, limit: Int)`: Search and filter templates with pagination
+- `course(id: ID!)`: Get a specific course with its name, credits, completion status, and prerequisites
+- `templateComments(templateId: ID!)`: Get all comments for a specific template with author information
+- `health`: Simple health check endpoint
+
+**Mutations:**
+- **Authentication:**
+  - `register(username: String!, password: String!)`: Register a new user, returns user details
+  - `login(username: String!, password: String!)`: Log in a user, returns user details
+  - `logout`: Log out the current user, returns success boolean
+- **Calculators:**
+  - `createCalculator(name: String!, min_desired_grade: Float)`: Create a calculator with optional minimum grade
+  - `updateCalculator(id: ID!, name: String, min_desired_grade: Float, assessments: [AssessmentInput!])`: Update calculator details and assessments
+  - `deleteCalculator(id: ID!)`: Delete a calculator, returns success boolean
+- **Templates:**
+  - `createTemplate(name: String!, term: String!, year: Int!, institution: String!, assessments: [TemplateAssessmentInput!]!)`: Create a shareable calculator template
+  - `deleteTemplate(id: ID!)`: Soft delete a template (only owner can delete)
+  - `useTemplate(templateId: ID!)`: Create a personal calculator from a template
+  - `voteTemplate(templateId: ID!, vote: Int!)`: Vote on a template (1 for upvote, -1 for downvote)
+  - `removeTemplateVote(templateId: ID!)`: Remove vote from a template
+- **Courses:**
+  - `createCourse(name: String!, credits: Float!, prerequisiteIds: [ID!])`: Create a course with optional prerequisites
+  - `updateCourse(id: ID!, name: String, credits: Float, completed: Boolean, prerequisiteIds: [ID!])`: Update course details and prerequisites
+  - `deleteCourse(id: ID!)`: Delete a course, returns success boolean
+- **Comments:**
+  - `addTemplateComment(templateId: ID!, content: String!)`: Add a comment to a template
+  - `updateTemplateComment(commentId: ID!, content: String!)`: Update a comment (only author can update)
+  - `deleteTemplateComment(commentId: ID!)`: Delete a comment (only author can delete)
 
 ## External Modules
 
-This project relies on several external dependencies to provide core functionality:
+This project relies on several external dependencies:
 
 ### Production Dependencies
-- **bcrypt**: Used for password hashing and verification to securely store user credentials
-- **better-sqlite3**: SQLite database driver providing a simple, fast interface for database operations
-- **dotenv**: Loads environment variables from .env files to manage configuration
-- **express**: Web application framework for building the API and server-side routes
-- **express-session**: Session middleware for Express to manage user authentication state
-- **lodash**: Utility library providing helper functions for common programming tasks
-- **svelte-routing**: Client-side routing library for Svelte applications
+- **@apollo/client**: GraphQL client for frontend
+- **@apollo/server**: GraphQL server implementation
+- **bcrypt**: Password hashing and verification
+- **better-sqlite3**: SQLite database driver
+- **dotenv**: Environment variable management
+- **express**: Web application framework
+- **express-session**: Session middleware for authentication
+- **graphql**: GraphQL implementation
+- **lodash**: Utility library
+- **svelte-routing**: Client-side routing
+- **winston**: Logging library
 
 ### Development Dependencies
-- **@babel/preset-env**: Babel preset for transpiling modern JavaScript to compatible versions
-- **@sveltejs/vite-plugin-svelte**: Vite plugin for Svelte components integration
-- **jest**: Testing framework for writing and running unit and integration tests
-- **supertest**: HTTP assertion library for testing API endpoints
-- **svelte**: Component framework for building the user interface
-- **vite**: Build tool and development server offering fast development experience
+- **@sveltejs/vite-plugin-svelte**: Vite plugin for Svelte
+- **tailwindcss** and plugins: CSS framework
+- **jest**: Testing framework
+- **supertest**: HTTP assertion library
+- **svelte**: Component framework
+- **svelte-sonner**: Toast notifications
+- **vite**: Build tool and development server
+- Additional utilities: bits-ui, clsx, tailwind-merge, tailwind-variants
 
 ## Specific Behaviors
 
@@ -245,5 +220,4 @@ This project relies on several external dependencies to provide core functionali
 ### Course Prerequisites
 - Courses are displayed in levels based on dependencies
 - A course appears after all its prerequisites
-- Prevents circular dependencies
-- Prerequisites must be completed before dependent courses
+- Credit hours are tracked for each course

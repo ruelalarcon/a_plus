@@ -1,185 +1,397 @@
-import supertest from 'supertest';
-import { app } from '../server.js';
-import { createAuthenticatedUser } from './test-helpers.js';
-import { clearAllTables } from '../db.js';
+import supertest from "supertest";
+import { app, startServer } from "../server.js";
+import { createAuthenticatedUser } from "./test-helpers.js";
+import { clearAllTables } from "../db.js";
 
-const request = supertest(app);
+// Initialize request after server starts
+let request;
+
+beforeAll(async () => {
+  // Make sure the server is started before tests
+  await startServer();
+  request = supertest(app);
+});
 
 /**
- * Helper function to create a test calculator
+ * Helper function to create a test calculator using GraphQL
  */
-async function createCalculator(cookies, data = { name: 'Test Calculator' }) {
-    const response = await request
-        .post('/api/calculators')
-        .set('Cookie', cookies)
-        .send(data);
+async function createCalculator(cookies, data = { name: "Test Calculator" }) {
+  const response = await request
+    .post("/graphql")
+    .set("Cookie", cookies)
+    .send({
+      query: `
+        mutation CreateCalculator($name: String!, $minDesiredGrade: Float) {
+          createCalculator(name: $name, min_desired_grade: $minDesiredGrade) {
+            id
+            name
+            min_desired_grade
+            assessments {
+              id
+              name
+              weight
+              grade
+            }
+          }
+        }
+      `,
+      variables: {
+        name: data.name,
+        minDesiredGrade: data.min_desired_grade,
+      },
+    });
 
-    return response.body;
+  if (!response.body.data?.createCalculator) {
+    console.error("Failed to create calculator:", response.body);
+    throw new Error("Failed to create calculator");
+  }
+
+  return response.body.data.createCalculator;
 }
 
-describe('Calculators API', () => {
-    let authCookies;
+describe("Calculators API", () => {
+  let authCookies;
+
+  beforeEach(async () => {
+    // Clear database and create a unique test user
+    clearAllTables();
+    // Create a user and get auth cookies before each test
+    authCookies = await createAuthenticatedUser("calcuser_" + Date.now());
+  });
+
+  describe("GraphQL calculator query", () => {
+    it("should return a calculator by ID", async () => {
+      // Create a calculator first
+      const calculator = await createCalculator(authCookies);
+
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            query GetCalculator($id: ID!) {
+              calculator(id: $id) {
+                id
+                name
+                min_desired_grade
+                assessments {
+                  id
+                  name
+                  weight
+                  grade
+                }
+              }
+            }
+          `,
+          variables: { id: calculator.id },
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.calculator).toHaveProperty("id", calculator.id);
+      expect(response.body.data.calculator).toHaveProperty(
+        "name",
+        calculator.name
+      );
+    });
+
+    it("should return null when calculator doesn't exist", async () => {
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            query GetCalculator($id: ID!) {
+              calculator(id: $id) {
+                id
+                name
+              }
+            }
+          `,
+          variables: { id: 999 },
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.calculator).toBeNull();
+    });
+
+    it("should throw error when trying to access another user's calculator", async () => {
+      // Create a calculator with the first user
+      const calculator = await createCalculator(authCookies);
+
+      // Create a second user
+      const secondUserCookies = await createAuthenticatedUser(
+        "calcuser2_" + Date.now()
+      );
+
+      // Try to access the calculator with the second user
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", secondUserCookies)
+        .send({
+          query: `
+            query GetCalculator($id: ID!) {
+              calculator(id: $id) {
+                id
+                name
+              }
+            }
+          `,
+          variables: { id: calculator.id },
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+      expect(response.body.errors[0].message).toContain("Not authorized");
+    });
+  });
+
+  describe("GraphQL createCalculator mutation", () => {
+    it("should create a new calculator", async () => {
+      const calculatorData = {
+        name: "New Calculator",
+        minDesiredGrade: 85.5,
+      };
+
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation CreateCalculator($name: String!, $minDesiredGrade: Float) {
+              createCalculator(
+                name: $name
+                min_desired_grade: $minDesiredGrade
+              ) {
+                id
+                name
+                min_desired_grade
+              }
+            }
+          `,
+          variables: calculatorData,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.createCalculator).toHaveProperty("id");
+      expect(response.body.data.createCalculator).toHaveProperty(
+        "name",
+        calculatorData.name
+      );
+      expect(response.body.data.createCalculator).toHaveProperty(
+        "min_desired_grade",
+        calculatorData.minDesiredGrade
+      );
+    });
+  });
+
+  describe("GraphQL updateCalculator mutation", () => {
+    let calculator;
 
     beforeEach(async () => {
-        // Clear database and create a unique test user
-        clearAllTables();
-        // Create a user and get auth cookies before each test
-        authCookies = await createAuthenticatedUser('calcuser_' + Date.now());
+      // Create a calculator to update
+      calculator = await createCalculator(authCookies);
     });
 
-    describe('GET /api/calculators', () => {
-        it('should return empty array when no calculators exist', async () => {
-            const response = await request
-                .get('/api/calculators')
-                .set('Cookie', authCookies);
-
-            expect(response.status).toBe(200);
-            expect(Array.isArray(response.body)).toBe(true);
+    it("should update calculator name", async () => {
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation UpdateCalculator($id: ID!, $name: String) {
+              updateCalculator(id: $id, name: $name) {
+                id
+                name
+              }
+            }
+          `,
+          variables: {
+            id: calculator.id,
+            name: "Updated Calculator",
+          },
         });
 
-        it('should return calculators for authenticated user', async () => {
-            // Create a calculator first
-            await createCalculator(authCookies);
+      expect(response.status).toBe(200);
+      expect(response.body.data.updateCalculator).toHaveProperty(
+        "name",
+        "Updated Calculator"
+      );
 
-            const response = await request
-                .get('/api/calculators')
-                .set('Cookie', authCookies);
-
-            expect(response.status).toBe(200);
-            expect(Array.isArray(response.body)).toBe(true);
-            expect(response.body.length).toBeGreaterThan(0);
+      // Verify the update
+      const getResponse = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            query Calculator($id: ID!) {
+              calculator(id: $id) {
+                name
+              }
+            }
+          `,
+          variables: {
+            id: calculator.id,
+          },
         });
 
-        it('should require authentication', async () => {
-            const response = await request.get('/api/calculators');
-
-            expect(response.status).toBe(401);
-            expect(response.body).toHaveProperty('error');
-        });
+      expect(getResponse.body.data.calculator).toHaveProperty(
+        "name",
+        "Updated Calculator"
+      );
     });
 
-    describe('POST /api/calculators', () => {
-        it('should create a new calculator', async () => {
-            const calculatorData = {
-                name: 'New Calculator',
-                min_desired_grade: 85.5
-            };
+    it("should update calculator assessments", async () => {
+      const assessments = [
+        { name: "Midterm", weight: 40, grade: 92 },
+        { name: "Final", weight: 60, grade: 88 },
+      ];
 
-            const response = await request
-                .post('/api/calculators')
-                .set('Cookie', authCookies)
-                .send(calculatorData);
-
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveProperty('id');
-            expect(response.body).toHaveProperty('name', calculatorData.name);
-            expect(response.body).toHaveProperty('min_desired_grade', calculatorData.min_desired_grade);
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation UpdateCalculator(
+              $id: ID!
+              $assessments: [AssessmentInput!]
+            ) {
+              updateCalculator(id: $id, assessments: $assessments) {
+                id
+                assessments {
+                  name
+                  weight
+                  grade
+                }
+              }
+            }
+          `,
+          variables: {
+            id: calculator.id,
+            assessments,
+          },
         });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.updateCalculator.assessments.length).toBe(2);
+      expect(response.body.data.updateCalculator.assessments[0]).toHaveProperty(
+        "name",
+        "Midterm"
+      );
+      expect(response.body.data.updateCalculator.assessments[0]).toHaveProperty(
+        "grade",
+        92
+      );
     });
 
-    describe('PUT /api/calculators/:id', () => {
-        let calculator;
+    it("should update both min_desired_grade and assessments in a single request", async () => {
+      const updateData = {
+        id: calculator.id,
+        minDesiredGrade: 85,
+        assessments: [
+          { name: "Quiz", weight: 20, grade: 90 },
+          { name: "Midterm", weight: 30, grade: 88 },
+          { name: "Final", weight: 50, grade: null },
+        ],
+      };
 
-        beforeEach(async () => {
-            // Create a calculator to update
-            calculator = await createCalculator(authCookies);
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation UpdateCalculator(
+              $id: ID!
+              $minDesiredGrade: Float
+              $assessments: [AssessmentInput!]
+            ) {
+              updateCalculator(
+                id: $id
+                min_desired_grade: $minDesiredGrade
+                assessments: $assessments
+              ) {
+                id
+                name
+                min_desired_grade
+                assessments {
+                  name
+                  weight
+                  grade
+                }
+              }
+            }
+          `,
+          variables: updateData,
         });
 
-        it('should update calculator name', async () => {
-            const response = await request
-                .put(`/api/calculators/${calculator.id}`)
-                .set('Cookie', authCookies)
-                .send({ name: 'Updated Calculator' });
+      expect(response.status).toBe(200);
 
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveProperty('success', true);
+      // Verify min_desired_grade was updated
+      expect(response.body.data.updateCalculator).toHaveProperty(
+        "min_desired_grade",
+        updateData.minDesiredGrade
+      );
 
-            // Verify the update
-            const getResponse = await request
-                .get(`/api/calculators/${calculator.id}`)
-                .set('Cookie', authCookies);
-
-            expect(getResponse.body.calculator).toHaveProperty('name', 'Updated Calculator');
-        });
-
-        it('should update calculator assessments', async () => {
-            const assessments = [
-                { name: 'Midterm', weight: 40, grade: 92 },
-                { name: 'Final', weight: 60, grade: 88 }
-            ];
-
-            const response = await request
-                .put(`/api/calculators/${calculator.id}`)
-                .set('Cookie', authCookies)
-                .send({ assessments });
-
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveProperty('success', true);
-
-            // Verify the update
-            const getResponse = await request
-                .get(`/api/calculators/${calculator.id}`)
-                .set('Cookie', authCookies);
-
-            expect(getResponse.body.assessments.length).toBe(2);
-            expect(getResponse.body.assessments[0]).toHaveProperty('name', 'Midterm');
-            expect(getResponse.body.assessments[0]).toHaveProperty('grade', 92);
-        });
-
-        it('should update both min_desired_grade and assessments in a single request', async () => {
-            const updateData = {
-                min_desired_grade: 85,
-                assessments: [
-                    { name: 'Quiz', weight: 20, grade: 90 },
-                    { name: 'Midterm', weight: 30, grade: 88 },
-                    { name: 'Final', weight: 50, grade: null }
-                ]
-            };
-
-            const response = await request
-                .put(`/api/calculators/${calculator.id}`)
-                .set('Cookie', authCookies)
-                .send(updateData);
-
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveProperty('success', true);
-
-            // Verify both updates
-            const getResponse = await request
-                .get(`/api/calculators/${calculator.id}`)
-                .set('Cookie', authCookies);
-
-            // Verify min_desired_grade was updated
-            expect(getResponse.body.calculator).toHaveProperty('min_desired_grade', updateData.min_desired_grade);
-
-            // Verify assessments were updated
-            expect(getResponse.body.assessments.length).toBe(3);
-            expect(getResponse.body.assessments[0]).toHaveProperty('name', 'Quiz');
-            expect(getResponse.body.assessments[0]).toHaveProperty('grade', 90);
-            expect(getResponse.body.assessments[1]).toHaveProperty('name', 'Midterm');
-            expect(getResponse.body.assessments[2]).toHaveProperty('name', 'Final');
-            expect(getResponse.body.assessments[2]).toHaveProperty('grade', null);
-        });
+      // Verify assessments were updated
+      expect(response.body.data.updateCalculator.assessments.length).toBe(3);
+      expect(response.body.data.updateCalculator.assessments[0]).toHaveProperty(
+        "name",
+        "Quiz"
+      );
+      expect(response.body.data.updateCalculator.assessments[0]).toHaveProperty(
+        "grade",
+        90
+      );
+      expect(response.body.data.updateCalculator.assessments[1]).toHaveProperty(
+        "name",
+        "Midterm"
+      );
+      expect(response.body.data.updateCalculator.assessments[2]).toHaveProperty(
+        "name",
+        "Final"
+      );
+      expect(response.body.data.updateCalculator.assessments[2]).toHaveProperty(
+        "grade",
+        null
+      );
     });
+  });
 
-    describe('DELETE /api/calculators/:id', () => {
-        it('should delete a calculator', async () => {
-            // Create a calculator to delete
-            const calculator = await createCalculator(authCookies);
+  describe("GraphQL deleteCalculator mutation", () => {
+    it("should delete a calculator", async () => {
+      // Create a calculator to delete
+      const calculator = await createCalculator(authCookies);
 
-            const response = await request
-                .delete(`/api/calculators/${calculator.id}`)
-                .set('Cookie', authCookies);
-
-            expect(response.status).toBe(200);
-            expect(response.body).toHaveProperty('success', true);
-
-            // Verify deletion
-            const getResponse = await request
-                .get(`/api/calculators/${calculator.id}`)
-                .set('Cookie', authCookies);
-
-            expect(getResponse.status).toBe(404);
+      const response = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            mutation DeleteCalculator($id: ID!) {
+              deleteCalculator(id: $id)
+            }
+          `,
+          variables: { id: calculator.id },
         });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.deleteCalculator).toBe(true);
+
+      // Verify deletion
+      const getResponse = await request
+        .post("/graphql")
+        .set("Cookie", authCookies)
+        .send({
+          query: `
+            query Calculator($id: ID!) {
+              calculator(id: $id) {
+                id
+              }
+            }
+          `,
+          variables: { id: calculator.id },
+        });
+
+      expect(getResponse.body.data.calculator).toBeNull();
     });
+  });
 });
