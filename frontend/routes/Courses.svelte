@@ -45,6 +45,40 @@
     if ($userId) {
       await loadCourses();
     }
+
+    // Setup keyboard shortcuts specific to courses page
+    function handleKeydown(e) {
+      // Alt+N to focus new course name input
+      if (
+        e.altKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "n"
+      ) {
+        e.preventDefault();
+
+        // Focus the course name input field
+        const courseNameInput = document.getElementById("new-course");
+        if (courseNameInput) {
+          courseNameInput.focus();
+
+          // Scroll to the input field to ensure it's visible
+          courseNameInput.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
+      }
+    }
+
+    // Add event listener
+    document.addEventListener("keydown", handleKeydown);
+
+    // Remove event listener on component unmount
+    return () => {
+      document.removeEventListener("keydown", handleKeydown);
+    };
   });
 
   async function loadCourses() {
@@ -57,7 +91,10 @@
     }
   }
 
-  async function addCourse() {
+  async function addCourse(e) {
+    // Prevent default form submission behavior if called from a form
+    if (e) e.preventDefault();
+
     try {
       if (!newCourseName || newCourseName.trim() === "") {
         toast.error("Please enter a course name");
@@ -207,16 +244,16 @@
     <header class="mb-8">
       <div
         class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
-  >
-    <div>
+      >
+        <div>
           <h1 class="text-3xl font-bold tracking-tight flex items-center gap-2">
             <BookOpen class="h-8 w-8 text-primary" />
             Course Planner
           </h1>
-      <p class="text-muted-foreground">
-        Welcome back, <strong>{$username}</strong>
-      </p>
-    </div>
+          <p class="text-muted-foreground">
+            Welcome back, <strong>{$username}</strong>
+          </p>
+        </div>
 
         <div class="flex items-center gap-2">
           <div class="flex items-center gap-4">
@@ -250,61 +287,62 @@
           </Card.Header>
           <Card.Content>
             <form class="space-y-4" on:submit|preventDefault={addCourse}>
-            <div class="space-y-2">
-              <Label for="new-course">Course Name</Label>
-              <Input
-                type="text"
-                id="new-course"
-                bind:value={newCourseName}
-                placeholder="Enter course name"
-              />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="new-course-credits">Credits</Label>
-              <Input
-                type="number"
-                id="new-course-credits"
-                bind:value={newCourseCredits}
-                min="0"
-                step="0.5"
-                placeholder="Enter credit amount"
-              />
-            </div>
-
-            {#if courses.length > 0}
               <div class="space-y-2">
-                <Label>Prerequisites</Label>
-                <div
+                <Label for="new-course">Course Name</Label>
+                <Input
+                  type="text"
+                  id="new-course"
+                  bind:value={newCourseName}
+                  placeholder="Enter course name"
+                />
+              </div>
+
+              <div class="space-y-2">
+                <Label for="new-course-credits">Credits</Label>
+                <Input
+                  type="number"
+                  id="new-course-credits"
+                  bind:value={newCourseCredits}
+                  min="0"
+                  step="0.5"
+                  placeholder="Enter credit amount"
+                />
+              </div>
+
+              {#if courses.length > 0}
+                <div class="space-y-2">
+                  <Label>Prerequisites</Label>
+                  <div
                     class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-md p-2"
-                >
-                  {#each courses as course}
-                    <div class="flex items-center space-x-2">
-                      <Checkbox
-                        id={`prereq-${course.id}`}
-                        checked={selectedPrereqs.includes(course.id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            selectedPrereqs = [...selectedPrereqs, course.id];
-                          } else {
-                            selectedPrereqs = selectedPrereqs.filter(
-                              (id) => id !== course.id
-                            );
-                          }
-                        }}
-                      />
+                  >
+                    {#each courses as course}
+                      <div class="flex items-center space-x-2">
+                        <Checkbox
+                          id={`prereq-${course.id}`}
+                          checked={selectedPrereqs.includes(course.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              selectedPrereqs = [...selectedPrereqs, course.id];
+                            } else {
+                              selectedPrereqs = selectedPrereqs.filter(
+                                (id) => id !== course.id
+                              );
+                            }
+                          }}
+                        />
                         <Label
                           for={`prereq-${course.id}`}
                           class="cursor-pointer"
-                      >
+                        >
                           {course.name}
                         </Label>
-                    </div>
-                  {/each}
+                      </div>
+                    {/each}
+                  </div>
                 </div>
-              </div>
-            {/if}
-          </form>
+              {/if}
+              <button type="submit" class="hidden">Submit</button>
+            </form>
           </Card.Content>
           <Card.Footer>
             <Button on:click={addCourse} class="w-full">
@@ -323,7 +361,7 @@
               </Card.Title>
             </Card.Header>
             <Card.Content>
-        <div class="space-y-4">
+              <div class="space-y-4">
                 <div>
                   <div class="flex justify-between text-sm mb-1">
                     <span>Courses Completed</span>
@@ -430,61 +468,61 @@
         </AlertDialog.Description>
       </AlertDialog.Header>
       <div class="space-y-4 py-4">
-            <div class="space-y-2">
+        <div class="space-y-2">
           <Label for="edit-course-name">Course Name</Label>
-                          <Input
-                            type="text"
+          <Input
+            type="text"
             id="edit-course-name"
-                            bind:value={editingCourse.name}
+            bind:value={editingCourse.name}
             placeholder="Enter course name"
-                          />
-                        </div>
+          />
+        </div>
 
-                        <div class="space-y-2">
+        <div class="space-y-2">
           <Label for="edit-course-credits">Credits</Label>
-                          <Input
-                            type="number"
+          <Input
+            type="number"
             id="edit-course-credits"
-                            bind:value={editingCourse.credits}
-                            min="0"
-                            step="0.5"
-                            placeholder="Enter credit amount"
-                          />
-                        </div>
+            bind:value={editingCourse.credits}
+            min="0"
+            step="0.5"
+            placeholder="Enter credit amount"
+          />
+        </div>
 
         {#if courses.length > 1}
-                        <div class="space-y-2">
-                          <Label>Prerequisites</Label>
-                          <div
+          <div class="space-y-2">
+            <Label>Prerequisites</Label>
+            <div
               class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-md p-2"
-                          >
+            >
               {#each courses.filter((c) => c.id !== editingCourse.id) as course}
-                              <div class="flex items-center space-x-2">
-                                <Checkbox
+                <div class="flex items-center space-x-2">
+                  <Checkbox
                     id={`edit-prereq-${course.id}`}
                     checked={editingPrereqs.includes(course.id)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
+                    onCheckedChange={(checked) => {
+                      if (checked) {
                         editingPrereqs = [...editingPrereqs, course.id];
-                                    } else {
-                                      editingPrereqs = editingPrereqs.filter(
+                      } else {
+                        editingPrereqs = editingPrereqs.filter(
                           (id) => id !== course.id
-                                      );
-                                    }
-                                  }}
-                                />
-                                <Label
+                        );
+                      }
+                    }}
+                  />
+                  <Label
                     for={`edit-prereq-${course.id}`}
-                                  class="cursor-pointer"
-                                >
+                    class="cursor-pointer"
+                  >
                     {course.name}
-                                </Label>
-                              </div>
-                            {/each}
-                          </div>
-                          </div>
-                        {/if}
-                      </div>
+                  </Label>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
       <AlertDialog.Footer>
         <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
         <AlertDialog.Action on:click={() => saveEdit(editingCourse)}>
@@ -493,7 +531,7 @@
       </AlertDialog.Footer>
     </AlertDialog.Content>
   </AlertDialog.Root>
-                  {/if}
+{/if}
 
 <!-- Delete Course Dialog -->
 <AlertDialog.Root
@@ -510,8 +548,8 @@
           <div class="mt-2 text-red-500">
             Warning: This course is a prerequisite for other courses. Deleting
             it will remove it from their prerequisites.
-        </div>
-      {/if}
+          </div>
+        {/if}
       </AlertDialog.Description>
     </AlertDialog.Header>
     <AlertDialog.Footer>

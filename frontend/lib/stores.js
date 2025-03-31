@@ -3,11 +3,11 @@
  * Authentication state management module using Svelte stores
  */
 
-import { writable } from 'svelte/store';
-import { navigate } from 'svelte-routing';
-import { query, mutate } from './graphql/client.js';
-import { ME } from './graphql/queries.js';
-import { LOGOUT } from './graphql/mutations.js';
+import { writable } from "svelte/store";
+import { navigate } from "svelte-routing";
+import { query, mutate } from "./graphql/client.js";
+import { ME } from "./graphql/queries.js";
+import { LOGOUT } from "./graphql/mutations.js";
 
 /**
  * Store containing the current user's ID
@@ -28,26 +28,26 @@ export const username = writable(null);
  * @returns {Promise<boolean>} Returns true if user is logged in, false otherwise
  */
 export async function updateSessionState() {
-	try {
-		const data = await query(ME);
+  try {
+    const data = await query(ME);
 
-		if (data.me) {
-			userId.set(data.me.id);
-			username.set(data.me.username);
-			return true;
-		} else {
-			// Clear the stores if no user is logged in
-			userId.set(null);
-			username.set(null);
-			return false;
-		}
-	} catch (error) {
-		// Handle network errors or other issues
-		console.error('Error checking login status:', error);
-		userId.set(null);
-		username.set(null);
-		return false;
-	}
+    if (data.me) {
+      userId.set(data.me.id);
+      username.set(data.me.username);
+      return true;
+    } else {
+      // Clear the stores if no user is logged in
+      userId.set(null);
+      username.set(null);
+      return false;
+    }
+  } catch (error) {
+    // Handle network errors or other issues
+    console.error("Error checking login status:", error);
+    userId.set(null);
+    username.set(null);
+    return false;
+  }
 }
 
 /**
@@ -57,15 +57,15 @@ export async function updateSessionState() {
  * @returns {Promise<void>}
  */
 export async function logout() {
-	try {
-		const data = await mutate(LOGOUT);
+  try {
+    const data = await mutate(LOGOUT);
 
-		if (data.logout) {
-			userId.set(null);
-			username.set(null);
-			navigate('/', { replace: true });
-		}
-	} catch (error) {
-		console.error('Error logging out:', error);
-	}
+    if (data.logout) {
+      userId.set(null);
+      username.set(null);
+      navigate("/", { replace: true });
+    }
+  } catch (error) {
+    console.error("Error logging out:", error);
+  }
 }

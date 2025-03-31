@@ -53,19 +53,34 @@
       const data = await mutate(CREATE_CALCULATOR, { name: newCalculatorName });
       if (data.createCalculator) {
         toast.success("Calculator created successfully");
-        navigate(`/calculator/${data.createCalculator.id}`);
+
+        // Close dialog before navigation
+        createDialogOpen = false;
+        // Reset form state
+        newCalculatorName = "";
+
+        // Get new calculator ID
+        const newCalculatorId = data.createCalculator.id;
+
+        // Use window.location to ensure proper navigation
+        window.location.href = `/calculator/${newCalculatorId}`;
       }
     } catch (error) {
       console.error("Error creating calculator:", error);
       toast.error("Failed to create calculator");
-    } finally {
-      newCalculatorName = "";
-      createDialogOpen = false;
     }
   }
 
   function openCreateDialog() {
     createDialogOpen = true;
+  }
+
+  // Handle Enter key in calculator name input
+  function handleKeydown(e) {
+    if (e.key === "Enter" && newCalculatorName.trim()) {
+      e.preventDefault();
+      createNewCalculator();
+    }
   }
 
   function handleCalculatorDelete(id) {
@@ -285,25 +300,27 @@
   onOpenChange={(open) => (createDialogOpen = open)}
 >
   <AlertDialog.Content>
-    <AlertDialog.Header>
-      <AlertDialog.Title>Create New Calculator</AlertDialog.Title>
-      <AlertDialog.Description>
-        Enter a name for your new calculator.
-      </AlertDialog.Description>
-    </AlertDialog.Header>
-    <div class="py-4">
-      <Input
-        type="text"
-        placeholder="Enter calculator name"
-        bind:value={newCalculatorName}
-        class="w-full"
-      />
-    </div>
-    <AlertDialog.Footer>
-      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-      <AlertDialog.Action on:click={createNewCalculator}>
-        Create
-      </AlertDialog.Action>
-    </AlertDialog.Footer>
+    <form on:submit|preventDefault={createNewCalculator}>
+      <AlertDialog.Header>
+        <AlertDialog.Title>Create New Calculator</AlertDialog.Title>
+        <AlertDialog.Description>
+          Enter a name for your new calculator.
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <div class="py-4">
+        <Input
+          type="text"
+          placeholder="Enter calculator name"
+          bind:value={newCalculatorName}
+          class="w-full"
+          on:keydown={handleKeydown}
+          autofocus
+        />
+      </div>
+      <AlertDialog.Footer>
+        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+        <AlertDialog.Action type="submit">Create</AlertDialog.Action>
+      </AlertDialog.Footer>
+    </form>
   </AlertDialog.Content>
 </AlertDialog.Root>

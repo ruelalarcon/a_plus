@@ -1,5 +1,5 @@
 <script>
-  import { Link, navigate } from "svelte-routing";
+  import { Link, navigate, useLocation } from "svelte-routing";
   import { onMount } from "svelte";
   import { openCommentsModal } from "../components/CommentsModal.svelte";
   import VoteButtons from "../components/VoteButtons.svelte";
@@ -22,6 +22,7 @@
   import { Progress } from "$lib/components/ui/progress";
   import { Separator } from "$lib/components/ui/separator";
   import { toast } from "svelte-sonner";
+  import { Badge } from "$lib/components/ui/badge";
 
   // Icons
   import MessageSquare from "lucide-svelte/icons/message-square";
@@ -41,6 +42,9 @@
 
   export let id; // Calculator ID from route params
 
+  // Get current location to check if we're on this calculator page
+  const location = useLocation();
+
   let calculator = { name: "", id: "", min_desired_grade: null };
   let assessments = [];
   let editingName = false;
@@ -55,6 +59,10 @@
   };
   let isSaving = false;
   let isAutoSaving = false;
+  let hasUnsavedChanges = false;
+  let unsavedChangesDialogOpen = false;
+  let pendingNavigation = null;
+  let initialCalculatorState = null;
 
   // Reactive values
   $: finalGrade = calculateFinalGrade(assessments);
@@ -80,9 +88,119 @@
   );
   $: weightWarning = totalWeight !== 100 && assessments.length > 0;
 
+  // Improved keyboard handler
+  function handleKeydown(e) {
+    // First check if we're on the calculator page still
+    if (!$location.pathname.startsWith(`/calculator/${id}`)) {
+      // Not on this calculator's page - don't handle shortcuts
+      return;
+    }
+
+    // Exit if we're in an input or textarea to avoid interfering with normal typing
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") {
+      // Allow Ctrl+S in all form fields only on this calculator page
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.altKey &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "s"
+      ) {
+        e.preventDefault();
+        saveCalculator();
+      }
+      return;
+    }
+
+    // Alt+N to create a new assessment
+    if (
+      e.altKey &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.shiftKey &&
+      e.key.toLowerCase() === "n"
+    ) {
+      e.preventDefault();
+      handleAddAssessment();
+    }
+
+    // Ctrl+S to save changes
+    if (
+      (e.ctrlKey || e.metaKey) &&
+      !e.altKey &&
+      !e.shiftKey &&
+      e.key.toLowerCase() === "s"
+    ) {
+      e.preventDefault();
+      saveCalculator();
+    }
+  }
+
+  // Keep track of whether the component is mounted
+  let isMounted = false;
+
   onMount(async () => {
+    isMounted = true;
     await loadCalculator();
+
+    // Handle navigation events to detect leaving with unsaved changes
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Add keyboard event listener
+    document.addEventListener("keydown", handleKeydown);
+
+    // Remove event listeners on component unmount
+    return () => {
+      isMounted = false;
+      document.removeEventListener("keydown", handleKeydown);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   });
+
+  // Handle beforeunload event
+  function handleBeforeUnload(e) {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      // Standard message for unsaved changes (browser-specific)
+      e.returnValue =
+        "You have unsaved changes. Are you sure you want to leave?";
+      return e.returnValue;
+    }
+  }
+
+  // Override navigation with confirmation when there are unsaved changes
+  function handleNavigate(href) {
+    if (hasUnsavedChanges) {
+      pendingNavigation = href;
+      unsavedChangesDialogOpen = true;
+    } else {
+      navigate(href);
+    }
+  }
+
+  // Track changes to assessments and calculator properties
+  $: {
+    if (initialCalculatorState) {
+      // Only mark as changed if something actually changed from initial state
+      const minGradeChanged =
+        calculator.min_desired_grade !==
+        initialCalculatorState.min_desired_grade;
+
+      // Check if assessments have changed in number, order, or values
+      const assessmentsChanged =
+        assessments.length !== initialCalculatorState.assessments.length ||
+        assessments.some((assessment, index) => {
+          const initialAssessment = initialCalculatorState.assessments[index];
+          if (!initialAssessment) return true;
+          return (
+            assessment.name !== initialAssessment.name ||
+            assessment.weight !== initialAssessment.weight ||
+            assessment.grade !== initialAssessment.grade
+          );
+        });
+
+      hasUnsavedChanges = minGradeChanged || assessmentsChanged;
+    }
+  }
 
   async function loadCalculator() {
     try {
@@ -90,6 +208,14 @@
       calculator = data.calculator;
       assessments = calculator.assessments || [];
       newName = calculator.name;
+
+      // Store initial state for change detection
+      initialCalculatorState = {
+        min_desired_grade: calculator.min_desired_grade,
+        assessments: JSON.parse(JSON.stringify(calculator.assessments || [])),
+      };
+
+      hasUnsavedChanges = false; // Reset after load
     } catch (error) {
       console.error("Error loading calculator:", error);
       toast.error("Failed to load calculator");
@@ -98,10 +224,12 @@
 
   function addAssessment() {
     assessments = [...assessments, { name: "", weight: "", grade: null }];
+    hasUnsavedChanges = true;
   }
 
   function removeAssessment(index) {
     assessments = assessments.filter((_, i) => i !== index);
+    hasUnsavedChanges = true;
   }
 
   // Assessment reordering functions
@@ -128,7 +256,7 @@
   }
 
   async function saveCalculator() {
-    if (isSaving) return;
+    if (isSaving || !isMounted) return;
 
     isSaving = true;
     try {
@@ -153,6 +281,14 @@
         template,
       };
       assessments = calculator.assessments || [];
+
+      // Update initial state after saving to reset change tracking
+      initialCalculatorState = {
+        min_desired_grade: calculator.min_desired_grade,
+        assessments: JSON.parse(JSON.stringify(calculator.assessments || [])),
+      };
+
+      hasUnsavedChanges = false; // Reset unsaved changes flag
       if (!isAutoSaving) {
         toast.success("Changes saved successfully!");
       }
@@ -294,6 +430,49 @@
     if (grade === "N/A") return "bg-muted text-muted-foreground";
     return "bg-background border text-foreground";
   }
+
+  function handleAddAssessment() {
+    assessments = [
+      ...assessments,
+      { id: `temp-${Date.now()}`, name: "", weight: 0, grade: null },
+    ];
+
+    // Focus the new assessment's name field
+    setTimeout(() => {
+      const newAssessmentNameField = document.querySelector(
+        `.assessment-row:last-child input[type="text"]`
+      );
+      if (newAssessmentNameField) newAssessmentNameField.focus();
+    }, 50);
+
+    // Mark that we have unsaved changes
+    hasUnsavedChanges = true;
+  }
+
+  // Confirm discard or save before navigating
+  function confirmNavigation() {
+    hasUnsavedChanges = false;
+    unsavedChangesDialogOpen = false;
+    if (pendingNavigation) {
+      navigate(pendingNavigation);
+      pendingNavigation = null;
+    }
+  }
+
+  function saveAndNavigate() {
+    saveCalculator().then(() => {
+      unsavedChangesDialogOpen = false;
+      if (pendingNavigation) {
+        navigate(pendingNavigation);
+        pendingNavigation = null;
+      }
+    });
+  }
+
+  function cancelNavigation() {
+    unsavedChangesDialogOpen = false;
+    pendingNavigation = null;
+  }
 </script>
 
 <div class="bg-muted/40 min-h-screen">
@@ -303,11 +482,11 @@
         class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
         <div class="flex items-center gap-2">
-          <Link to="/" class="mr-2">
+          <button class="mr-2" on:click={() => handleNavigate("/")}>
             <Button variant="ghost" size="icon" class="rounded-full">
               <ChevronLeft class="h-5 w-5" />
             </Button>
-          </Link>
+          </button>
           {#if editingName}
             <div class="flex items-center gap-2">
               <Input
@@ -574,9 +753,14 @@
                   <Plus class="h-4 w-4 mr-2" />
                   Add Assessment
                 </Button>
-                <Button on:click={saveCalculator} disabled={isSaving}>
+                <Button
+                  on:click={saveCalculator}
+                  disabled={isSaving}
+                  class="flex items-center"
+                >
                   <Save class="h-4 w-4 mr-2" />
                   {isSaving ? "Saving..." : "Save Changes"}
+                  <Badge variant="secondary" class="ml-2">Ctrl+S</Badge>
                 </Button>
               </div>
             {/if}
@@ -668,11 +852,12 @@
               <Button
                 variant="outline"
                 on:click={saveCalculator}
-                class="w-full"
+                class="w-full flex items-center justify-center"
                 disabled={isSaving}
               >
                 <Save class="h-4 w-4 mr-2" />
                 Save Target
+                <Badge variant="outline" class="ml-2">Ctrl+S</Badge>
               </Button>
             </div>
           </Card.Content>
@@ -847,6 +1032,34 @@
       <AlertDialog.Action on:click={publishAsTemplate}>
         Publish Template
       </AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>
+
+<!-- Add Unsaved Changes Dialog -->
+<AlertDialog.Root
+  open={unsavedChangesDialogOpen}
+  onOpenChange={(open) => (unsavedChangesDialogOpen = open)}
+>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Unsaved Changes</AlertDialog.Title>
+      <AlertDialog.Description>
+        You have unsaved changes. What would you like to do?
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer class="flex justify-between">
+      <Button variant="outline" on:click={cancelNavigation}>
+        Continue Editing
+      </Button>
+      <div class="flex gap-2">
+        <Button variant="destructive" on:click={confirmNavigation}>
+          Discard Changes
+        </Button>
+        <Button variant="default" on:click={saveAndNavigate}>
+          Save & Continue
+        </Button>
+      </div>
     </AlertDialog.Footer>
   </AlertDialog.Content>
 </AlertDialog.Root>

@@ -3,6 +3,8 @@
   import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import * as Sheet from "$lib/components/ui/sheet";
+  import CommandPalette from "./CommandPalette.svelte";
+  import { Badge } from "$lib/components/ui/badge";
 
   // Icons
   import Menu from "lucide-svelte/icons/menu";
@@ -11,6 +13,7 @@
   import User from "lucide-svelte/icons/user";
   import Search from "lucide-svelte/icons/search";
   import LogOut from "lucide-svelte/icons/log-out";
+  import Command from "lucide-svelte/icons/command";
 
   import { username, userId, logout } from "../lib/stores.js";
 
@@ -18,6 +21,7 @@
 
   let isMobile = false;
   let isSidebarOpen = false;
+  let commandPaletteOpen = false;
 
   // Get location from the router
   const location = useLocation();
@@ -88,7 +92,13 @@
 
     return currentPath.startsWith(pathToCheck);
   }
+
+  function openCommandPalette() {
+    commandPaletteOpen = true;
+  }
 </script>
+
+<CommandPalette bind:open={commandPaletteOpen} />
 
 <div class="min-h-screen flex flex-col">
   <!-- Header -->
@@ -108,8 +118,22 @@
       </div>
 
       {#if $userId}
-        <div class="text-sm text-muted-foreground">
-          <span>Hi, <strong>{$username || "User"}</strong></span>
+        <div class="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            on:click={openCommandPalette}
+            class="hidden md:flex items-center gap-2"
+          >
+            <Command class="h-4 w-4" />
+            <span>Command Palette</span>
+            <div class="flex flex-col items-start ml-1">
+              <Badge variant="outline" class="py-0">Ctrl+K</Badge>
+            </div>
+          </Button>
+          <div class="text-sm text-muted-foreground">
+            <span>Hi, <strong>{$username || "User"}</strong></span>
+          </div>
         </div>
       {/if}
     </div>
@@ -159,6 +183,23 @@
                 {/each}
               </ul>
             </nav>
+
+            <!-- Mobile Command Palette Button -->
+            <div class="p-2 border-t">
+              <Button
+                variant="outline"
+                class="w-full justify-start gap-3"
+                on:click={openCommandPalette}
+              >
+                <Command class="h-4 w-4" />
+                <div class="flex flex-col items-start">
+                  <span>Command Palette (Ctrl+K)</span>
+                  <span class="text-xs text-muted-foreground"
+                    >+ Alt+C/O/A/S</span
+                  >
+                </div>
+              </Button>
+            </div>
 
             {#if $userId}
               <div class="p-4 border-t">
