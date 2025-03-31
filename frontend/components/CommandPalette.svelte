@@ -37,6 +37,8 @@
   let openCalculatorDialogOpen = false;
   let calculators = [];
   let isLoadingCalculators = false;
+  let calculatorsLoaded = false;
+  let calculatorSearchQuery = "";
 
   // State for course creation
   let createCourseDialogOpen = false;
@@ -54,6 +56,18 @@
   let templateSearchInputEl;
 
   onMount(() => {
+    // Preload calculators data when component mounts
+    if ($userId) {
+      loadCalculators();
+    }
+
+    // Periodically refresh calculator data in the background (every 2 minutes)
+    const refreshInterval = setInterval(() => {
+      if ($userId && !openCalculatorDialogOpen) {
+        loadCalculators();
+      }
+    }, 120000);
+
     function handleKeydown(e) {
       // Command Palette toggle (Ctrl+K)
       if (
@@ -105,6 +119,7 @@
 
     return () => {
       document.removeEventListener("keydown", handleKeydown);
+      clearInterval(refreshInterval);
     };
   });
 
@@ -120,20 +135,57 @@
   }
 
   async function handleOpenCalculator() {
+    // First start a fetch in the background before opening dialog
+    const fetchPromise = refreshCalculatorsInBackground();
+
+    // Immediately open dialog with existing data
     open = false;
+    calculatorSearchQuery = ""; // Reset search
     openCalculatorDialogOpen = true;
-    // Load calculators immediately
-    await loadCalculators();
+
+    // After a slight delay (500ms) to let the animation complete,
+    // check if we should update the UI with new data
+    setTimeout(async () => {
+      if (openCalculatorDialogOpen) {
+        // Wait for the fetch to complete if it hasn't already
+        await fetchPromise;
+      }
+    }, 500);
+  }
+
+  // Returns a promise that resolves when calculators are loaded
+  function refreshCalculatorsInBackground() {
+    return new Promise((resolve) => {
+      loadCalculators().then(resolve).catch(resolve);
+    });
+  }
+
+  // Called when the dialog is closed
+  function handleCalculatorDialogClose(isOpen) {
+    openCalculatorDialogOpen = isOpen;
+
+    // Only refresh data when dialog is closed
+    if (!isOpen) {
+      setTimeout(() => {
+        loadCalculators();
+      }, 300); // Delay to ensure closing animation completes first
+    }
   }
 
   async function loadCalculators() {
+    if (isLoadingCalculators) return;
+
     isLoadingCalculators = true;
     try {
       const data = await query(USER_CALCULATORS, { userId: $userId });
       calculators = data.user.calculators;
+      calculatorsLoaded = true;
     } catch (error) {
       console.error("Error loading calculators:", error);
-      toast.error("Failed to load calculators");
+      // Only show error toast if dialog is closed to avoid interrupting the experience
+      if (!openCalculatorDialogOpen) {
+        toast.error("Failed to load calculators");
+      }
     } finally {
       isLoadingCalculators = false;
     }
@@ -386,12 +438,15 @@
 <!-- Open Calculator Dialog -->
 <Command.Dialog
   open={openCalculatorDialogOpen}
-  onOpenChange={(open) => (openCalculatorDialogOpen = open)}
+  onOpenChange={handleCalculatorDialogClose}
 >
-  <Command.Input placeholder="Search calculators..." />
+  <Command.Input
+    placeholder="Search calculators..."
+    bind:value={calculatorSearchQuery}
+  />
   <Command.List>
     <Command.Empty>
-      {#if isLoadingCalculators}
+      {#if isLoadingCalculators && !calculatorsLoaded}
         <div class="p-2 text-center">Loading calculators...</div>
       {:else}
         <div class="p-2 text-center">No calculators found</div>
@@ -399,7 +454,7 @@
     </Command.Empty>
 
     <Command.Group heading="Your Calculators">
-      {#if isLoadingCalculators}
+      {#if isLoadingCalculators && !calculatorsLoaded}
         <div class="p-2 text-center">Loading calculators...</div>
       {:else}
         {#each calculators as calculator}

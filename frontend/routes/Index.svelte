@@ -6,6 +6,7 @@
   import { Badge } from "$lib/components/ui/badge";
 
   // Icons
+  import Logo from "$resources/logo.svg";
   import Calculator from "lucide-svelte/icons/calculator";
   import BookOpen from "lucide-svelte/icons/book-open";
   import Share2 from "lucide-svelte/icons/share-2";
@@ -22,13 +23,23 @@
     <div class="flex flex-row gap-32 justify-center">
       <div class="space-y-6">
         <Badge variant="outline" class="px-3 py-1 text-sm font-medium mb-2"
-          >Community-Driven Organization</Badge
+          >Community-Driven Academic Platform</Badge
         >
-        <h1
-          class="text-4xl md:text-6xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70"
-        >
-          A+Plus
-        </h1>
+        <div class="flex flex-col sm:flex-row items-center gap-4 mb-6">
+          <img
+            src={Logo}
+            alt="A+Plus"
+            class="h-20 w-auto"
+            style="filter: invert(28%) sepia(66%) saturate(359%) hue-rotate(88deg) brightness(92%) contrast(86%);"
+          />
+          <div class="flex flex-col">
+            <h1
+              class="text-4xl md:text-6xl font-bold tracking-tight bg-clip-text text-primary text-center sm:text-left"
+            >
+              Plus
+            </h1>
+          </div>
+        </div>
         <p class="text-xl text-muted-foreground max-w-md">
           The smart way to track your grades, calculate final scores, discuss
           with peers on specific courses, and achieve your academic goals.
@@ -336,8 +347,8 @@
         Ready to achieve your academic goals?
       </h2>
       <p class="text-muted-foreground mb-8 max-w-md mx-auto">
-        Join thousands of students who use A+Plus to share templates and
-        stay on top of their academic performance.
+        Join thousands of students who use A+Plus to share templates and stay on
+        top of their academic performance.
       </p>
       <div class="flex flex-col sm:flex-row gap-4 justify-center">
         <Link to="/register">

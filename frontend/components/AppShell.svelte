@@ -7,6 +7,7 @@
   import { Badge } from "$lib/components/ui/badge";
 
   // Icons
+  import Logo from "$resources/logo.svg";
   import Menu from "lucide-svelte/icons/menu";
   import Calculator from "lucide-svelte/icons/calculator";
   import BookOpen from "lucide-svelte/icons/book-open";
@@ -16,8 +17,6 @@
   import Command from "lucide-svelte/icons/command";
 
   import { username, userId, logout } from "../lib/stores.js";
-
-  export let title = "Grade Calculator";
 
   let isMobile = false;
   let isSidebarOpen = false;
@@ -114,7 +113,16 @@
             <Menu class="h-5 w-5" />
           </Button>
         {/if}
-        <h1 class="text-lg font-semibold">{title}</h1>
+        <Link to="/" class="flex items-center">
+          <div class="h-8 flex items-center">
+            <img
+              src={Logo}
+              alt="A+Plus"
+              class="h-full w-auto"
+              style="filter: invert(28%) sepia(66%) saturate(359%) hue-rotate(88deg) brightness(92%) contrast(86%);"
+            />
+          </div>
+        </Link>
       </div>
 
       {#if $userId}

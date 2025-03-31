@@ -7,6 +7,7 @@
   import { updateSessionState } from "../lib/stores.js";
   import { mutate } from "../lib/graphql/client.js";
   import { LOGIN } from "../lib/graphql/mutations.js";
+  import BackgroundArt from "$resources/bg-art.png";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -91,7 +92,7 @@
   </div>
   <div class="bg-muted hidden lg:block">
     <img
-      src="https://placehold.co/720x1080"
+      src={BackgroundArt}
       alt="placeholder"
       class="w-full h-screen object-cover dark:brightness-[0.2] dark:grayscale"
     />

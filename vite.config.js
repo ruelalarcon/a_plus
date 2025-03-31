@@ -17,6 +17,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      $resources: path.resolve("./frontend/resources"),
       $lib: path.resolve("./frontend/shadcn"),
     },
   },
