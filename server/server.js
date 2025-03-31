@@ -34,15 +34,8 @@ if (!existsSync(logsDir)) {
   }
 }
 
-// Load environment variables from .env file in the current directory
-// or from the parent directory if not found in current
-const result = dotenv.config();
-if (result.error) {
-  // Try parent directory
-  dotenv.config({
-    path: join(__dirname, "../.env"),
-  });
-}
+// Load environment variables from env file in the current directory
+dotenv.config();
 
 // Enforce .env file with SESSION_SECRET is present as it is required in all environments
 if (!process.env.SESSION_SECRET) {
@@ -179,9 +172,9 @@ async function startServer() {
 export { app, startServer };
 
 // Only start the HTTP server if this file is being run directly (not imported for testing)
-// Check if we're NOT in test mode and we haven't set a variable to disable auto-start
+// Check if we're NOT in test mode or we haven't set a variable to disable auto-start
 if (
-  process.env.NODE_ENV !== "test" &&
+  process.env.NODE_ENV !== "test" ||
   process.env.DISABLE_AUTO_START !== "true"
 ) {
   startServer()

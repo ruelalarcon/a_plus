@@ -1,20 +1,19 @@
 import { clearAllTables, closeDatabase } from "./server/db.js";
-import dotenv from "dotenv";
-import { resolve } from "path";
-
-// Load test environment variables
-dotenv.config({ path: resolve(process.cwd(), ".env.test") });
-
-// Set test environment
-process.env.NODE_ENV = "test";
-process.env.PORT = 3001; // Use a different port for testing
 
 // Clear all data before each test
 beforeEach(async () => {
-  clearAllTables();
+  try {
+    clearAllTables();
+  } catch (error) {
+    console.error("Error clearing all tables:", error);
+  }
 });
 
 // Close database connection after all tests
 afterAll(async () => {
-  await closeDatabase();
+  try {
+    await closeDatabase();
+  } catch (error) {
+    console.error("Error closing database connection:", error);
+  }
 });

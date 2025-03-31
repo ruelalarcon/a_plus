@@ -29,12 +29,7 @@ const colors = {
 winston.addColors(colors);
 
 // Determine log level based on environment
-const level =
-  process.env.NODE_ENV === "production"
-    ? "info"
-    : process.env.NODE_ENV === "test"
-    ? "error" // Only log errors in test environment
-    : "debug";
+const level = process.env.NODE_ENV === "production" ? "info" : "debug";
 
 // Define log format
 const format = winston.format.combine(
