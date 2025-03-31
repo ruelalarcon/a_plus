@@ -12,6 +12,8 @@ A web application for students to track course grades, share grade calculation t
 2. Create a `.env` file with:
    ```
    NODE_ENV=development # options: production, development, test
+   # Note: don't use production unless deploying on a site with valid SSL certificates, etc.
+
    PORT=3000
    SESSION_SECRET=your-secret-key-here
    ```
@@ -24,6 +26,8 @@ A web application for students to track course grades, share grade calculation t
    This will build the frontend and start the server.
 
 4. Access the app at http://localhost:3000
+
+5. See self-documented API sandbox at http://localhost:3000/graphql
 
 ## Testing
 

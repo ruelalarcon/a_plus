@@ -88,8 +88,18 @@
   );
   $: weightWarning = totalWeight !== 100 && assessments.length > 0;
 
-  // Improved keyboard handler
+  // Add isMobile flag
+  let isMobile = false;
+
+  function checkMobile() {
+    isMobile = window.innerWidth < 768;
+  }
+
+  // Improved keyboard handler - now checks for mobile
   function handleKeydown(e) {
+    // Don't process keyboard shortcuts on mobile
+    if (isMobile) return;
+
     // First check if we're on the calculator page still
     if (!$location.pathname.startsWith(`/calculator/${id}`)) {
       // Not on this calculator's page - don't handle shortcuts
@@ -142,6 +152,10 @@
     isMounted = true;
     await loadCalculator();
 
+    // Check if mobile device
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+
     // Handle navigation events to detect leaving with unsaved changes
     window.addEventListener("beforeunload", handleBeforeUnload);
 
@@ -153,6 +167,7 @@
       isMounted = false;
       document.removeEventListener("keydown", handleKeydown);
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("resize", checkMobile);
     };
   });
 
@@ -760,7 +775,9 @@
                 >
                   <Save class="h-4 w-4 mr-2" />
                   {isSaving ? "Saving..." : "Save Changes"}
-                  <Badge variant="secondary" class="ml-2">Ctrl+S</Badge>
+                  {#if !isMobile}
+                    <Badge variant="secondary" class="ml-2">Ctrl+S</Badge>
+                  {/if}
                 </Button>
               </div>
             {/if}
@@ -857,7 +874,9 @@
               >
                 <Save class="h-4 w-4 mr-2" />
                 Save Target
-                <Badge variant="outline" class="ml-2">Ctrl+S</Badge>
+                {#if !isMobile}
+                  <Badge variant="outline" class="ml-2">Ctrl+S</Badge>
+                {/if}
               </Button>
             </div>
           </Card.Content>

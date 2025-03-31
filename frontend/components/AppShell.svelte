@@ -184,8 +184,8 @@
               </ul>
             </nav>
 
-            <!-- Mobile Command Palette Button -->
-            <div class="p-2 border-t">
+            <!-- Remove Command Palette from mobile sidebar -->
+            <div class="p-2 border-t hidden">
               <Button
                 variant="outline"
                 class="w-full justify-start gap-3"
