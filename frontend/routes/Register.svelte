@@ -7,6 +7,7 @@
   import { mutate } from "../lib/graphql/client.js";
   import { REGISTER } from "../lib/graphql/mutations.js";
   import BackgroundArt from "$resources/bg-art.png";
+  import { updateSessionState } from "../lib/stores.js";
 
   let password = "";
   let confirmPassword = "";
@@ -51,15 +52,11 @@
       });
 
       if (data.register) {
+        await updateSessionState();
         toast.success("Registration successful!", {
-          description:
-            "Your account has been created. Please log in to continue.",
-          action: {
-            label: "Log In",
-            onClick: () => navigate("/login", { replace: true }),
-          },
+          description: "Your account has been created.",
         });
-        navigate("/login", { replace: true });
+        navigate("/", { replace: true });
       } else {
         toast.error("Registration failed", {
           description: "Unable to register with the provided details.",
@@ -91,7 +88,10 @@
   }
 </script>
 
-<div class="w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden">
+<div
+  class="w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden"
+  data-test="register-page"
+>
   <div class="flex items-center justify-center py-12">
     <div class="mx-auto grid w-[350px] gap-6">
       <div class="grid gap-2 text-center">
@@ -100,7 +100,11 @@
           Create a new account to get started
         </p>
       </div>
-      <form on:submit={handleSubmit} class="grid gap-4">
+      <form
+        on:submit={handleSubmit}
+        class="grid gap-4"
+        data-test="register-form"
+      >
         <div class="grid gap-2">
           <Label for="username">Username</Label>
           <Input
@@ -110,6 +114,7 @@
             placeholder="Choose a username"
             required
             autocomplete="username"
+            data-test="username-input"
           />
         </div>
         <div class="grid gap-2">
@@ -121,6 +126,7 @@
             placeholder="Create a password"
             required
             autocomplete="new-password"
+            data-test="password-input"
           />
         </div>
         <div class="grid gap-2">
@@ -132,13 +138,18 @@
             placeholder="Confirm your password"
             required
             autocomplete="new-password"
+            data-test="confirm-password-input"
           />
         </div>
-        <Button type="submit" class="w-full">Register</Button>
+        <Button type="submit" class="w-full" data-test="register-submit-btn"
+          >Register</Button
+        >
       </form>
       <div class="text-center text-sm">
         Already have an account?
-        <Link to="/login" class="text-primary underline">Log in</Link>
+        <Link to="/login" class="text-primary underline" data-test="login-link"
+          >Log in</Link
+        >
       </div>
     </div>
   </div>

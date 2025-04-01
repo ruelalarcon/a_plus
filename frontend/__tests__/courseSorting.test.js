@@ -6,7 +6,7 @@ import {
   flattenSortedCourses,
   filterCourses,
   isPrerequisiteForOtherCourses,
-} from "../../../frontend/lib/utils/courseSorting.js";
+} from "../lib/utils/courseSorting.js";
 
 describe("Course Sorting Utilities", () => {
   // Sample data for tests

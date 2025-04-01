@@ -98,7 +98,7 @@
   debouncedSearch();
 </script>
 
-<div class="bg-muted/40 min-h-screen">
+<div class="bg-muted/40 min-h-screen" data-test="search-page">
   <div class="container mx-auto px-4 py-8">
     <header class="mb-8">
       <div
@@ -118,11 +118,15 @@
           <div class="flex items-center gap-4">
             <div class="text-center">
               <p class="text-sm text-muted-foreground">Found</p>
-              <p class="text-2xl font-bold">{totalResults}</p>
+              <p class="text-2xl font-bold" data-test="total-results">
+                {totalResults}
+              </p>
             </div>
             <div class="text-center">
               <p class="text-sm text-muted-foreground">Pages</p>
-              <p class="text-2xl font-bold">{totalPages}</p>
+              <p class="text-2xl font-bold" data-test="total-pages">
+                {totalPages}
+              </p>
             </div>
           </div>
         </div>
@@ -130,7 +134,7 @@
     </header>
 
     <div class="mb-8">
-      <Card.Root>
+      <Card.Root data-test="search-filters">
         <Card.Header>
           <Card.Title class="flex items-center gap-2">
             <Filter class="h-5 w-5" />
@@ -144,6 +148,7 @@
           <form
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
             on:submit|preventDefault={handleSearch}
+            data-test="search-form"
           >
             <div class="space-y-2">
               <Label for="search-query" class="flex items-center gap-2">
@@ -156,6 +161,7 @@
                 bind:value={searchQuery}
                 placeholder="Search by name..."
                 on:input={handleSearch}
+                data-test="search-input"
               />
             </div>
 
@@ -170,6 +176,7 @@
                 bind:value={term}
                 placeholder="Term (e.g. Fall, Spring)"
                 on:input={handleSearch}
+                data-test="term-input"
               />
             </div>
 
@@ -184,6 +191,7 @@
                 bind:value={year}
                 placeholder="Year"
                 on:input={handleSearch}
+                data-test="year-input"
               />
             </div>
 
@@ -198,17 +206,22 @@
                 bind:value={institution}
                 placeholder="Institution"
                 on:input={handleSearch}
+                data-test="institution-input"
               />
             </div>
           </form>
         </Card.Content>
         <Card.Footer class="flex justify-between">
-          <Button variant="outline" on:click={clearFilters}>
+          <Button
+            variant="outline"
+            on:click={clearFilters}
+            data-test="clear-filters-btn"
+          >
             Clear Filters
           </Button>
-          <Button on:click={handleSearch}>
+          <Button on:click={handleSearch} data-test="search-btn">
             <Search class="h-4 w-4 mr-2" />
-            Search
+            <span>Search</span>
           </Button>
         </Card.Footer>
       </Card.Root>
@@ -218,16 +231,19 @@
       <h2 class="text-2xl font-semibold" id="search-results">Results</h2>
       <div class="flex items-center gap-2">
         {#if totalResults > 0}
-          <Badge variant="outline">
+          <Badge variant="outline" data-test="results-count">
             Showing {templates.length} of {totalResults} templates
           </Badge>
         {/if}
       </div>
     </div>
 
-    <section class="space-y-6">
+    <section class="space-y-6" data-test="results-section">
       {#if isLoading}
-        <div class="text-center py-10 bg-background rounded-lg border">
+        <div
+          class="text-center py-10 bg-background rounded-lg border"
+          data-test="loading-state"
+        >
           <div class="animate-pulse flex flex-col items-center justify-center">
             <div class="w-12 h-12 rounded-full bg-muted mb-4"></div>
             <div class="h-4 w-32 bg-muted rounded mb-4"></div>
@@ -235,24 +251,34 @@
           </div>
         </div>
       {:else if templates.length > 0}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          data-test="templates-grid"
+        >
           {#each templates as template}
             <TemplateCard {template} onDelete={handleTemplateDelete} />
           {/each}
         </div>
 
-        <div class="flex justify-center items-center gap-4 py-4">
+        <div
+          class="flex justify-center items-center gap-4 py-4"
+          data-test="pagination"
+        >
           <Button
             variant="outline"
             class="flex items-center gap-1"
             on:click={() => changePage(currentPage - 1)}
             disabled={currentPage <= 1}
+            data-test="prev-page-btn"
           >
             <ChevronLeft class="h-4 w-4" />
             <span>Previous</span>
           </Button>
 
-          <div class="px-4 py-2 rounded-md bg-background border">
+          <div
+            class="px-4 py-2 rounded-md bg-background border"
+            data-test="page-indicator"
+          >
             <span class="font-medium">
               Page {currentPage} of {totalPages}
             </span>
@@ -263,13 +289,17 @@
             class="flex items-center gap-1"
             on:click={() => changePage(currentPage + 1)}
             disabled={currentPage >= totalPages}
+            data-test="next-page-btn"
           >
             <span>Next</span>
             <ChevronRight class="h-4 w-4" />
           </Button>
         </div>
       {:else}
-        <div class="text-center py-16 bg-background rounded-lg border">
+        <div
+          class="text-center py-16 bg-background rounded-lg border"
+          data-test="empty-results"
+        >
           <FilePlus class="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           {#if searchQuery || term || year || institution}
             <p class="text-lg font-medium mb-2">No matching templates found</p>
@@ -277,7 +307,12 @@
               Try adjusting your search filters or clear them to see all
               templates.
             </p>
-            <Button variant="outline" class="mt-4" on:click={clearFilters}>
+            <Button
+              variant="outline"
+              class="mt-4"
+              on:click={clearFilters}
+              data-test="clear-filters-empty-btn"
+            >
               Clear All Filters
             </Button>
           {:else}

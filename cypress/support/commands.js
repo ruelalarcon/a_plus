@@ -23,24 +23,3 @@
 //
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
-
-/**
- * Custom command to login directly via the UI
- */
-Cypress.Commands.add('login', (username, password) => {
-  cy.visit('/login');
-  cy.get('input[name="username"]').type(username);
-  cy.get('input[name="password"]').type(password);
-  cy.get('button[type="submit"]').click();
-});
-
-/**
- * Custom command to register a new user via the UI
- */
-Cypress.Commands.add('register', (username, password) => {
-  cy.visit('/register');
-  cy.get('input[id="username"]').type(username);
-  cy.get('input[id="password"]').type(password);
-  cy.get('input[id="confirm-password"]').type(password);
-  cy.get('button[type="submit"]').click();
-});

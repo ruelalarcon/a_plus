@@ -10,6 +10,7 @@ export default defineConfig({
         return launchOptions;
       });
     },
+    experimentalStudio: true,
   },
   viewportWidth: 1280,
   viewportHeight: 800,

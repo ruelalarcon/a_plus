@@ -1,7 +1,7 @@
 <script>
   import { Link } from "svelte-routing";
   import VoteButtons from "./VoteButtons.svelte";
-  import { openCommentsModal } from "./CommentsModal.svelte";
+  import { openCommentsSheet } from "./CommentsSheet.svelte";
   import { mutate } from "../lib/graphql/client.js";
   import { USE_TEMPLATE } from "../lib/graphql/mutations.js";
   import { navigate } from "svelte-routing";
@@ -67,6 +67,8 @@
 
 <Card.Root
   class="w-full h-full flex flex-col transition-all duration-200 border-muted/60 hover:shadow-md hover:border-primary/20"
+  data-test="template-card"
+  data-template-id={template.id}
 >
   <Card.Header class="pb-3">
     <div class="flex justify-between items-start">
@@ -75,6 +77,7 @@
           <FileText class="h-5 w-5 text-primary" />
           <Card.Title
             class="text-xl font-bold group-hover:text-primary transition-colors duration-200"
+            data-test="template-name"
           >
             {template.name}
           </Card.Title>
@@ -83,6 +86,7 @@
             size="icon"
             class="h-7 w-7 rounded-full transition-all opacity-0 group-hover:opacity-80 hover:opacity-100"
             on:click={() => copyShareLink(template.id)}
+            data-test="copy-link-btn"
           >
             {#if copiedToClipboard}
               <Check class="h-3.5 w-3.5 text-green-500" />
@@ -93,25 +97,35 @@
         </div>
         <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2">
           {#if template.institution}
-            <div class="flex items-center gap-1 text-sm text-muted-foreground">
+            <div
+              class="flex items-center gap-1 text-sm text-muted-foreground"
+              data-test="template-institution"
+            >
               <Building2 class="h-3.5 w-3.5" />
               <span>{template.institution || "Institution"}</span>
             </div>
           {/if}
           {#if template.term || template.year}
-            <div class="flex items-center gap-1 text-sm text-muted-foreground">
+            <div
+              class="flex items-center gap-1 text-sm text-muted-foreground"
+              data-test="template-term"
+            >
               <Calendar class="h-3.5 w-3.5" />
               <span>{template.term || "Term"} {template.year || ""}</span>
             </div>
           {/if}
         </div>
-        <div class="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+        <div
+          class="flex items-center gap-1 text-xs text-muted-foreground mt-1"
+          data-test="template-author"
+        >
           <User class="h-3 w-3" />
           <span
             >By {#if template.creator?.id}
               <Link
                 to={`/user/${template.creator.id}`}
                 class="hover:text-primary hover:underline"
+                data-test="author-link"
               >
                 {template.creator.username}
               </Link>
@@ -139,15 +153,17 @@
           size="sm"
           class="flex items-center gap-1 bg-muted/30 hover:bg-muted"
           on:click={() => copyShareLink(template.id)}
+          data-test="share-template-btn"
         >
           <Link2 class="h-3.5 w-3.5" />
           <span>Share</span>
         </Button>
-        <Link to={`/template/${template.id}`}>
+        <Link to={`/template/${template.id}`} data-test="preview-template-link">
           <Button
             variant="outline"
             size="sm"
             class="flex items-center gap-1 bg-muted/30 hover:bg-muted"
+            data-test="preview-template-btn"
           >
             <ScanEye class="h-3.5 w-3.5" />
             <span>Preview</span>
@@ -158,6 +174,7 @@
         size="sm"
         class="bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-1"
         on:click={() => useTemplate(template.id)}
+        data-test="use-template-btn"
       >
         <ExternalLink class="h-3.5 w-3.5" />
         <span>Use Template</span>
@@ -171,7 +188,8 @@
       variant="ghost"
       size="sm"
       class="w-full rounded-none h-10 justify-center text-muted-foreground hover:text-primary hover:bg-primary/5"
-      on:click={() => openCommentsModal(template.id)}
+      on:click={() => openCommentsSheet(template.id)}
+      data-test="view-comments-btn"
     >
       <MessageSquare class="h-4 w-4 mr-2" />
       <span>View Comments</span>

@@ -4,6 +4,52 @@
  */
 
 /**
+ * Parse a string that could be either a fraction or a float into a percentage
+ * @param {string|number|null} value - The value to parse
+ * @returns {number|null} The parsed value as a percentage, or null if invalid
+ */
+export function parseFractionOrFloat(value) {
+  if (value === null || value === undefined || value === "") return null;
+
+  // Convert to string to handle all cases uniformly
+  const strValue = value.toString().trim();
+
+  // Check for valid characters
+  if (!/^-?\d+\.?\d*(?:\s*\/\s*\d+\.?\d*)?$/.test(strValue)) return null;
+
+  // Count special characters
+  const dashCount = (strValue.match(/-/g) || []).length;
+  const slashCount = (strValue.match(/\//g) || []).length;
+
+  // Validate character counts
+  if (dashCount > 1 || slashCount > 1) return null;
+
+  try {
+    let result;
+    if (slashCount === 1) {
+      // Handle fraction
+      const [numerator, denominator] = strValue
+        .split("/")
+        .map((part) => part.trim());
+      const parsedDenominator = parseFloat(denominator);
+      if (parsedDenominator === 0 || isNaN(parsedDenominator)) return null;
+      const parsedNumerator = parseFloat(numerator);
+      if (isNaN(parsedNumerator)) return null;
+      result = (parsedNumerator / parsedDenominator) * 100;
+    } else {
+      // Handle regular number - assume it's already a percentage
+      result = parseFloat(strValue);
+      if (isNaN(result)) return null;
+    }
+
+    // Round to 2 decimal places
+    return Math.round(result * 100) / 100;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Calculate the weighted average grade for a set of assessments
  * @param {Array<{
  *   grade: number|string|null,
@@ -26,21 +72,20 @@
  */
 export function calculateFinalGrade(assessments) {
   // Filter out assessments with missing or invalid grades/weights
-  const gradedAssessments = assessments.filter(
-    (assessment) =>
-      assessment.grade !== null &&
-      assessment.grade !== undefined &&
-      assessment.grade !== "" &&
+  const gradedAssessments = assessments.filter((assessment) => {
+    const parsedGrade = parseFractionOrFloat(assessment.grade);
+    return (
+      parsedGrade !== null &&
       assessment.weight !== null &&
       assessment.weight !== undefined &&
       assessment.weight !== ""
-  );
+    );
+  });
 
   // Return N/A if no valid assessments found
   if (gradedAssessments.length === 0) return "N/A";
 
   // Calculate total weight of all graded assessments
-  // This is used as the denominator in the weighted average calculation
   const totalWeight = gradedAssessments.reduce(
     (sum, assessment) => sum + Number(assessment.weight),
     0
@@ -50,16 +95,13 @@ export function calculateFinalGrade(assessments) {
   if (totalWeight === 0) return "N/A";
 
   // Calculate weighted sum of grades
-  // For each assessment: grade * weight
-  // Then sum all weighted grades
   const weightedSum = gradedAssessments.reduce((sum, assessment) => {
     const weight = Number(assessment.weight);
-    const grade = Number(assessment.grade);
+    const grade = parseFractionOrFloat(assessment.grade) || 0;
     return sum + grade * weight;
   }, 0);
 
-  // Calculate final grade: (sum of weighted grades) / (total weight)
-  // Format to 2 decimal places
+  // Calculate final grade and format to 2 decimal places
   return (weightedSum / totalWeight).toFixed(2);
 }
 
@@ -83,25 +125,25 @@ export function calculateRequiredGrade(assessments, minDesiredGrade) {
   if (!minDesiredGrade || isNaN(Number(minDesiredGrade))) return "N/A";
 
   // Filter assessments into completed and remaining
-  const completedAssessments = assessments.filter(
-    (assessment) =>
-      assessment.grade !== null &&
-      assessment.grade !== undefined &&
-      assessment.grade !== "" &&
+  const completedAssessments = assessments.filter((assessment) => {
+    const parsedGrade = parseFractionOrFloat(assessment.grade);
+    return (
+      parsedGrade !== null &&
       assessment.weight !== null &&
       assessment.weight !== undefined &&
       assessment.weight !== ""
-  );
+    );
+  });
 
-  const remainingAssessments = assessments.filter(
-    (assessment) =>
-      (assessment.grade === null ||
-        assessment.grade === undefined ||
-        assessment.grade === "") &&
+  const remainingAssessments = assessments.filter((assessment) => {
+    const parsedGrade = parseFractionOrFloat(assessment.grade);
+    return (
+      parsedGrade === null &&
       assessment.weight !== null &&
       assessment.weight !== undefined &&
       assessment.weight !== ""
-  );
+    );
+  });
 
   // Return N/A if no remaining assessments
   if (remainingAssessments.length === 0) return "N/A";
@@ -128,7 +170,7 @@ export function calculateRequiredGrade(assessments, minDesiredGrade) {
   const completedWeightedSum = completedAssessments.reduce(
     (sum, assessment) => {
       const weight = Number(assessment.weight);
-      const grade = Number(assessment.grade);
+      const grade = parseFractionOrFloat(assessment.grade) || 0;
       return sum + grade * weight;
     },
     0

@@ -438,8 +438,12 @@ describe("Templates API", () => {
 
       // At least one result should match each parameter
       // Since our implementation uses OR between search fields, not AND
-      const hasYearMatch = response.body.data.allTemplates.templates.some(t => t.year === 2023);
-      const hasTermMatch = response.body.data.allTemplates.templates.some(t => t.term.includes("Fall"));
+      const hasYearMatch = response.body.data.allTemplates.templates.some(
+        (t) => t.year === 2023
+      );
+      const hasTermMatch = response.body.data.allTemplates.templates.some((t) =>
+        t.term.includes("Fall")
+      );
 
       expect(hasYearMatch).toBe(true);
       expect(hasTermMatch).toBe(true);

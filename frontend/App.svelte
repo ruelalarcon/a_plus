@@ -11,7 +11,7 @@
 
   // Import components
   import AppShell from "./components/AppShell.svelte";
-  import CommentsModal from "./components/CommentsModal.svelte";
+  import CommentsSheet from "./components/CommentsSheet.svelte";
   import { Toaster } from "svelte-sonner";
 
   // Import routes
@@ -60,7 +60,7 @@
 </script>
 
 <Toaster />
-<CommentsModal />
+<CommentsSheet />
 
 <Router {url}>
   <main>

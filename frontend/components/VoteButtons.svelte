@@ -117,7 +117,7 @@
   }
 </script>
 
-<div class="vote-buttons">
+<div class="vote-buttons" data-test="vote-buttons">
   {#if isCreator}
     <div class="flex items-center gap-2">
       <Tooltip.Root>
@@ -129,6 +129,7 @@
               disabled={true}
               class="vote-button opacity-70"
               aria-label="Upvote"
+              data-test="disabled-upvote-btn"
             >
               <ThumbsUp class="h-4 w-4" />
               <Lock
@@ -140,7 +141,9 @@
         <Tooltip.Content>Cannot vote on your own template</Tooltip.Content>
       </Tooltip.Root>
 
-      <span class="vote-count text-sm">{localVoteCount}</span>
+      <span class="vote-count text-sm" data-test="vote-count"
+        >{localVoteCount}</span
+      >
 
       <Tooltip.Root>
         <Tooltip.Trigger asChild let:builder>
@@ -151,6 +154,7 @@
               disabled={true}
               class="vote-button opacity-70"
               aria-label="Downvote"
+              data-test="disabled-downvote-btn"
             >
               <ThumbsDown class="h-4 w-4" />
               <Lock
@@ -169,6 +173,7 @@
             size="icon"
             class="text-destructive hover:bg-destructive/10 ml-1"
             on:click={() => (deleteDialogOpen = true)}
+            data-test="delete-template-btn"
           >
             <Trash2 class="h-4 w-4" />
           </Button>
@@ -179,6 +184,7 @@
       <AlertDialog.Root
         open={deleteDialogOpen}
         onOpenChange={(open) => (deleteDialogOpen = open)}
+        data-test="delete-template-dialog"
       >
         <AlertDialog.Content>
           <AlertDialog.Header>
@@ -189,10 +195,13 @@
             </AlertDialog.Description>
           </AlertDialog.Header>
           <AlertDialog.Footer>
-            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Cancel data-test="cancel-delete-template-btn"
+              >Cancel</AlertDialog.Cancel
+            >
             <AlertDialog.Action
               on:click={deleteTemplate}
               class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-test="confirm-delete-template-btn"
             >
               Delete
             </AlertDialog.Action>
@@ -208,11 +217,14 @@
       disabled={loading}
       class="vote-button"
       aria-label="Upvote"
+      data-test="upvote-btn"
     >
       <ThumbsUp class="h-4 w-4" />
     </Button>
 
-    <span class="vote-count text-sm">{localVoteCount}</span>
+    <span class="vote-count text-sm" data-test="vote-count"
+      >{localVoteCount}</span
+    >
 
     <Button
       variant={localUserVote === -1 ? "default" : "outline"}
@@ -221,6 +233,7 @@
       disabled={loading}
       class="vote-button"
       aria-label="Downvote"
+      data-test="downvote-btn"
     >
       <ThumbsDown class="h-4 w-4" />
     </Button>

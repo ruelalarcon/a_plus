@@ -1,7 +1,6 @@
 <script>
   import { username, userId } from "../lib/stores.js";
   import { Link } from "svelte-routing";
-  import { navigate } from "svelte-routing";
   import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -132,33 +131,36 @@
   }).length;
 </script>
 
-<div class="bg-muted/40 min-h-screen">
+<div class="bg-muted/40 min-h-screen" data-test="calculators-page">
   <div class="container mx-auto px-4 py-8">
     <header class="mb-8">
       <div
         class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
         <div>
-          <h1 class="text-3xl font-bold tracking-tight flex items-center gap-2">
+          <h1
+            class="text-3xl font-bold tracking-tight flex items-center gap-2"
+            data-test="page-title"
+          >
             <Calculator class="h-8 w-8 text-primary" />
             Grade Calculators
           </h1>
-          <p class="text-muted-foreground">
+          <p class="text-muted-foreground" data-test="user-greeting">
             Welcome back, <strong>{$username}</strong>
           </p>
         </div>
 
         <div class="flex items-center gap-2">
           <div class="flex items-center gap-4">
-            <div class="text-center">
+            <div class="text-center" data-test="total-calculators-stat">
               <p class="text-sm text-muted-foreground">Total Calculators</p>
               <p class="text-2xl font-bold">{calculators.length}</p>
             </div>
-            <div class="text-center">
+            <div class="text-center" data-test="meeting-goal-stat">
               <p class="text-sm text-muted-foreground">Meeting Goal</p>
               <p class="text-2xl font-bold">{meetingGoalCount}</p>
             </div>
-            <div class="text-center">
+            <div class="text-center" data-test="total-assessments-stat">
               <p class="text-sm text-muted-foreground">Total Assessments</p>
               <p class="text-2xl font-bold">{totalAssessments}</p>
             </div>
@@ -170,7 +172,7 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
       <!-- Sidebar with Create Calculator Form and Actions -->
       <div class="md:col-span-1">
-        <Card.Root>
+        <Card.Root data-test="create-calculator-card">
           <Card.Header>
             <Card.Title class="flex items-center gap-2">
               <Plus class="h-5 w-5" />
@@ -191,7 +193,11 @@
             </div>
           </Card.Content>
           <Card.Footer>
-            <Button on:click={openCreateDialog} class="w-full">
+            <Button
+              on:click={openCreateDialog}
+              class="w-full"
+              data-test="create-calculator-btn"
+            >
               <Plus class="h-4 w-4 mr-2" />
               Create New Calculator
             </Button>
@@ -199,7 +205,7 @@
         </Card.Root>
 
         <div class="mt-6">
-          <Card.Root>
+          <Card.Root data-test="templates-card">
             <Card.Header>
               <Card.Title class="flex items-center gap-2">
                 <Search class="h-5 w-5" />
@@ -221,7 +227,11 @@
             </Card.Content>
             <Card.Footer>
               <Link to="/search" class="w-full">
-                <Button variant="outline" class="w-full">
+                <Button
+                  variant="outline"
+                  class="w-full"
+                  data-test="search-templates-btn"
+                >
                   <Search class="h-4 w-4 mr-2" />
                   Search Templates
                 </Button>
@@ -236,11 +246,21 @@
         <div
           class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6"
         >
-          <Tabs.Root bind:value={activeTab} class="w-full">
+          <Tabs.Root
+            bind:value={activeTab}
+            class="w-full"
+            data-test="calculator-tabs"
+          >
             <Tabs.List class="w-full sm:w-auto">
-              <Tabs.Trigger value="all">All Calculators</Tabs.Trigger>
-              <Tabs.Trigger value="meeting_goal">Meeting Goal</Tabs.Trigger>
-              <Tabs.Trigger value="below_target">Below Target</Tabs.Trigger>
+              <Tabs.Trigger value="all" data-test="all-calculators-tab"
+                >All Calculators</Tabs.Trigger
+              >
+              <Tabs.Trigger value="meeting_goal" data-test="meeting-goal-tab"
+                >Meeting Goal</Tabs.Trigger
+              >
+              <Tabs.Trigger value="below_target" data-test="below-target-tab"
+                >Below Target</Tabs.Trigger
+              >
             </Tabs.List>
           </Tabs.Root>
 
@@ -253,12 +273,16 @@
               placeholder="Search calculators..."
               class="pl-8 w-full"
               bind:value={searchQuery}
+              data-test="calculator-search"
             />
           </div>
         </div>
 
         {#if filteredCalculators.length > 0}
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 gap-4"
+            data-test="calculators-grid"
+          >
             {#each filteredCalculators as calculator}
               <CalculatorCard
                 {calculator}
@@ -268,22 +292,31 @@
             {/each}
           </div>
         {:else}
-          <div class="text-center py-12 bg-background rounded-lg border">
+          <div
+            class="text-center py-12 bg-background rounded-lg border"
+            data-test="empty-state"
+          >
             <Target class="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             {#if searchQuery}
-              <p class="text-muted-foreground">
+              <p class="text-muted-foreground" data-test="empty-search-message">
                 No calculators match your search.
               </p>
             {:else if activeTab === "meeting_goal"}
-              <p class="text-muted-foreground">
+              <p
+                class="text-muted-foreground"
+                data-test="empty-meeting-goal-message"
+              >
                 No calculators are meeting their target grade.
               </p>
             {:else if activeTab === "below_target"}
-              <p class="text-muted-foreground">
+              <p
+                class="text-muted-foreground"
+                data-test="empty-below-target-message"
+              >
                 No calculators are below their target grade.
               </p>
             {:else}
-              <p class="text-muted-foreground">
+              <p class="text-muted-foreground" data-test="empty-all-message">
                 No calculators yet. Create your first calculator to get started!
               </p>
             {/if}
@@ -298,6 +331,7 @@
 <AlertDialog.Root
   open={createDialogOpen}
   onOpenChange={(open) => (createDialogOpen = open)}
+  data-test="create-calculator-dialog"
 >
   <AlertDialog.Content>
     <form on:submit|preventDefault={createNewCalculator}>
@@ -315,11 +349,16 @@
           class="w-full"
           on:keydown={handleKeydown}
           autofocus
+          data-test="calculator-name-input"
         />
       </div>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-        <AlertDialog.Action type="submit">Create</AlertDialog.Action>
+        <AlertDialog.Cancel data-test="cancel-create-btn"
+          >Cancel</AlertDialog.Cancel
+        >
+        <AlertDialog.Action type="submit" data-test="confirm-create-btn"
+          >Create</AlertDialog.Action
+        >
       </AlertDialog.Footer>
     </form>
   </AlertDialog.Content>

@@ -50,7 +50,10 @@
   }
 </script>
 
-<div class="w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden">
+<div
+  class="w-full h-screen lg:grid lg:grid-cols-2 overflow-hidden"
+  data-test="login-page"
+>
   <div class="flex items-center justify-center py-12">
     <div class="mx-auto grid w-[350px] gap-6">
       <div class="grid gap-2 text-center">
@@ -59,7 +62,7 @@
           Enter your credentials to access your account
         </p>
       </div>
-      <form on:submit={handleSubmit} class="grid gap-4">
+      <form on:submit={handleSubmit} class="grid gap-4" data-test="login-form">
         <div class="grid gap-2">
           <Label for="username">Username</Label>
           <Input
@@ -69,6 +72,7 @@
             placeholder="Enter your username"
             required
             autocomplete="username"
+            data-test="username-input"
           />
         </div>
         <div class="grid gap-2">
@@ -80,13 +84,20 @@
             placeholder="Enter your password"
             required
             autocomplete="current-password"
+            data-test="password-input"
           />
         </div>
-        <Button type="submit" class="w-full">Login</Button>
+        <Button type="submit" class="w-full" data-test="login-submit-btn"
+          >Login</Button
+        >
       </form>
       <div class="text-center text-sm">
         Don't have an account yet?
-        <Link to="/register" class="text-primary underline">Register</Link>
+        <Link
+          to="/register"
+          class="text-primary underline"
+          data-test="register-link">Register</Link
+        >
       </div>
     </div>
   </div>

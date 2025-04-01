@@ -84,6 +84,20 @@ export const authMutations = {
       });
     }
 
+    // Validate username length
+    if (username.length < 3 || username.length > 28) {
+      throw new GraphQLError("Username must be between 3 and 28 characters", {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+
+    // Validate username characters
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      throw new GraphQLError("Username can only contain letters, numbers, and underscores", {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+
     try {
       const hashedPassword = await bcrypt.hash(password, 10);
       const stmt = db.prepare(

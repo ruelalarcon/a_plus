@@ -70,7 +70,7 @@
     )[0]?.created_at || null;
 </script>
 
-<div class="bg-muted/40 min-h-screen">
+<div class="bg-muted/40 min-h-screen" data-test="user-profile-page">
   <div class="container mx-auto px-4 py-8">
     <header class="mb-8">
       <div
@@ -80,6 +80,7 @@
           {#if user}
             <h1
               class="text-3xl font-bold tracking-tight flex items-center gap-2"
+              data-test="profile-username"
             >
               <User class="h-8 w-8 text-primary" />
               {user.username}'s Profile
@@ -98,18 +99,25 @@
           <div class="flex items-center gap-4">
             <div class="text-center">
               <p class="text-sm text-muted-foreground">Templates</p>
-              <p class="text-2xl font-bold">{templates.length}</p>
+              <p class="text-2xl font-bold" data-test="templates-count">
+                {templates.length}
+              </p>
             </div>
             <div class="text-center">
               <p class="text-sm text-muted-foreground">Comments</p>
-              <p class="text-2xl font-bold">{comments.length}</p>
+              <p class="text-2xl font-bold" data-test="comments-count">
+                {comments.length}
+              </p>
             </div>
           </div>
         </div>
       </div>
 
       {#if latestActivity}
-        <div class="mt-4 text-sm text-muted-foreground flex items-center gap-2">
+        <div
+          class="mt-4 text-sm text-muted-foreground flex items-center gap-2"
+          data-test="latest-activity"
+        >
           <Calendar class="h-4 w-4" />
           <span>Latest content created: {formatDate(latestActivity)}</span>
         </div>
@@ -118,7 +126,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
       <!-- Sidebar -->
-      <div class="md:col-span-1">
+      <div class="md:col-span-1" data-test="user-sidebar">
         <Card.Root>
           <Card.Header>
             <Card.Title class="flex items-center gap-2">
@@ -130,20 +138,28 @@
             <div class="space-y-4">
               {#if user}
                 <div>
-                  <div class="flex items-center gap-2 mb-4">
+                  <div
+                    class="flex items-center gap-2 mb-4"
+                    data-test="user-avatar"
+                  >
                     <div
                       class="bg-primary text-primary-foreground w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold"
                     >
                       {user.username.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <p class="font-medium">{user.username}</p>
+                      <p class="font-medium" data-test="user-sidebar-username">
+                        {user.username}
+                      </p>
                     </div>
                   </div>
 
                   <Separator class="my-4" />
 
-                  <div class="grid grid-cols-2 gap-2 text-sm">
+                  <div
+                    class="grid grid-cols-2 gap-2 text-sm"
+                    data-test="user-stats"
+                  >
                     <div>
                       <p class="text-muted-foreground">Templates</p>
                       <p class="font-medium">{templates.length}</p>
@@ -155,7 +171,7 @@
                   </div>
                 </div>
               {:else}
-                <div class="text-center py-4">
+                <div class="text-center py-4" data-test="loading-user-info">
                   <p class="text-muted-foreground">
                     Loading user information...
                   </p>
@@ -167,30 +183,44 @@
       </div>
 
       <!-- Main Content -->
-      <div class="md:col-span-3">
+      <div class="md:col-span-3" data-test="user-content">
         <Tabs.Root bind:value={activeTab} class="w-full">
           <Tabs.List class="w-full border-b mb-6">
-            <Tabs.Trigger value="templates" class="flex items-center gap-1">
+            <Tabs.Trigger
+              value="templates"
+              class="flex items-center gap-1"
+              data-test="templates-tab"
+            >
               <FileText class="h-4 w-4" />
               Templates
               <Badge variant="secondary" class="ml-1">{templates.length}</Badge>
             </Tabs.Trigger>
-            <Tabs.Trigger value="comments" class="flex items-center gap-1">
+            <Tabs.Trigger
+              value="comments"
+              class="flex items-center gap-1"
+              data-test="comments-tab"
+            >
               <MessageSquare class="h-4 w-4" />
               Comments
               <Badge variant="secondary" class="ml-1">{comments.length}</Badge>
             </Tabs.Trigger>
           </Tabs.List>
 
-          <Tabs.Content value="templates">
+          <Tabs.Content value="templates" data-test="templates-content">
             {#if templates.length > 0}
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div
+                class="grid grid-cols-1 md:grid-cols-2 gap-6"
+                data-test="templates-grid"
+              >
                 {#each templates as template}
                   <TemplateCard {template} onDelete={handleTemplateDelete} />
                 {/each}
               </div>
             {:else}
-              <div class="text-center py-10 bg-background rounded-lg border">
+              <div
+                class="text-center py-10 bg-background rounded-lg border"
+                data-test="no-templates"
+              >
                 <FileText
                   class="h-12 w-12 mx-auto text-muted-foreground mb-4"
                 />
@@ -199,15 +229,21 @@
             {/if}
           </Tabs.Content>
 
-          <Tabs.Content value="comments">
+          <Tabs.Content value="comments" data-test="comments-content">
             {#if comments.length > 0}
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div
+                class="grid grid-cols-1 md:grid-cols-2 gap-6"
+                data-test="comments-grid"
+              >
                 {#each comments as comment}
                   <CommentCard {comment} showTemplate={true} />
                 {/each}
               </div>
             {:else}
-              <div class="text-center py-10 bg-background rounded-lg border">
+              <div
+                class="text-center py-10 bg-background rounded-lg border"
+                data-test="no-comments"
+              >
                 <MessageSquare
                   class="h-12 w-12 mx-auto text-muted-foreground mb-4"
                 />

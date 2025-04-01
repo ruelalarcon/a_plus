@@ -134,24 +134,27 @@ export function clearAllTables() {
     throw new Error("clearAllTables can only be called in test environment");
   }
 
+  // Order matters - delete child tables before parent tables
   const tables = [
-    "course_prerequisites",
-    "courses",
-    "template_comments",
-    "template_assessments",
-    "template_votes",
-    "calculator_templates",
-    "assessments",
-    "calculators",
-    "users",
+    "template_comments", // No dependencies
+    "template_votes", // Depends on templates and users
+    "template_assessments", // Depends on templates
+    "assessments", // Depends on calculators
+    "course_prerequisites", // Depends on courses
+    "courses", // Depends on users
+    "calculators", // Depends on users and templates
+    "calculator_templates", // Depends on users
+    "users", // Base table
   ];
 
   db.transaction(() => {
     // Disable foreign key constraints temporarily
     db.exec("PRAGMA foreign_keys = OFF;");
 
+    // Delete from each table and reset the autoincrement counters
     tables.forEach((table) => {
-      db.exec(`DELETE FROM ${table}`);
+      db.exec(`DELETE FROM ${table};`);
+      db.exec(`DELETE FROM sqlite_sequence WHERE name='${table}';`);
     });
 
     // Re-enable foreign key constraints

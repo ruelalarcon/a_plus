@@ -384,15 +384,20 @@
   let searchValue = "";
 </script>
 
-<Command.Dialog bind:open>
+<Command.Dialog bind:open data-test="command-palette">
   <Command.Input
     placeholder="Type a command or search..."
     bind:value={searchValue}
+    data-test="command-input"
   />
   <Command.List>
     <Command.Empty>No results found.</Command.Empty>
     <Command.Group heading="Actions">
-      <Command.Item onSelect={handleCreateCalculator} value="create calculator">
+      <Command.Item
+        onSelect={handleCreateCalculator}
+        value="create calculator"
+        data-test="create-calculator-item"
+      >
         <div class="flex items-center justify-between w-full">
           <div class="flex items-center gap-2">
             <Plus class="h-4 w-4" />
@@ -401,7 +406,11 @@
           <Badge variant="outline" class="ml-2">Alt+C</Badge>
         </div>
       </Command.Item>
-      <Command.Item onSelect={handleOpenCalculator} value="open calculator">
+      <Command.Item
+        onSelect={handleOpenCalculator}
+        value="open calculator"
+        data-test="open-calculator-item"
+      >
         <div class="flex items-center justify-between w-full">
           <div class="flex items-center gap-2">
             <FolderOpen class="h-4 w-4" />
@@ -410,7 +419,11 @@
           <Badge variant="outline" class="ml-2">Alt+O</Badge>
         </div>
       </Command.Item>
-      <Command.Item onSelect={handleAddCourse} value="add course">
+      <Command.Item
+        onSelect={handleAddCourse}
+        value="add course"
+        data-test="add-course-item"
+      >
         <div class="flex items-center justify-between w-full">
           <div class="flex items-center gap-2">
             <BookOpen class="h-4 w-4" />
@@ -422,6 +435,7 @@
       <Command.Item
         onSelect={() => handleSearchTemplates(searchValue)}
         value="search templates"
+        data-test="search-templates-item"
       >
         <div class="flex items-center justify-between w-full">
           <div class="flex items-center gap-2">
@@ -439,37 +453,50 @@
 <Command.Dialog
   open={openCalculatorDialogOpen}
   onOpenChange={handleCalculatorDialogClose}
+  data-test="open-calculator-dialog"
 >
   <Command.Input
     placeholder="Search calculators..."
     bind:value={calculatorSearchQuery}
+    data-test="calculator-search-input"
   />
   <Command.List>
     <Command.Empty>
       {#if isLoadingCalculators && !calculatorsLoaded}
-        <div class="p-2 text-center">Loading calculators...</div>
+        <div class="p-2 text-center" data-test="loading-calculators">
+          Loading calculators...
+        </div>
       {:else}
-        <div class="p-2 text-center">No calculators found</div>
+        <div class="p-2 text-center" data-test="no-calculators-found">
+          No calculators found
+        </div>
       {/if}
     </Command.Empty>
 
-    <Command.Group heading="Your Calculators">
+    <Command.Group heading="Your Calculators" data-test="calculators-group">
       {#if isLoadingCalculators && !calculatorsLoaded}
-        <div class="p-2 text-center">Loading calculators...</div>
+        <div class="p-2 text-center" data-test="loading-calculators">
+          Loading calculators...
+        </div>
       {:else}
         {#each calculators as calculator}
           <Command.Item
             value={calculator.name}
             onSelect={() => openCalculator(calculator)}
+            data-test="calculator-item"
+            data-calculator-id={calculator.id}
           >
             <div class="flex items-center justify-between w-full">
               <div class="flex items-center gap-2">
                 <Calculator class="h-4 w-4" />
-                <span>{calculator.name}</span>
+                <span data-test="calculator-name">{calculator.name}</span>
               </div>
 
               {#if calculator.min_desired_grade}
-                <span class="text-xs text-muted-foreground">
+                <span
+                  class="text-xs text-muted-foreground"
+                  data-test="calculator-target"
+                >
                   Target: {calculator.min_desired_grade}%
                 </span>
               {/if}
@@ -485,6 +512,7 @@
 <AlertDialog.Root
   open={createDialogOpen}
   onOpenChange={(open) => (createDialogOpen = open)}
+  data-test="create-calculator-dialog"
 >
   <AlertDialog.Content>
     <form on:submit={createNewCalculator}>
@@ -503,11 +531,18 @@
           bind:this={calculatorInputEl}
           on:keydown={handleKeydown}
           autofocus
+          data-test="new-calculator-name-input"
         />
       </div>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-        <AlertDialog.Action type="submit" disabled={isCreating}>
+        <AlertDialog.Cancel data-test="cancel-create-calculator"
+          >Cancel</AlertDialog.Cancel
+        >
+        <AlertDialog.Action
+          type="submit"
+          disabled={isCreating}
+          data-test="confirm-create-calculator"
+        >
           {isCreating ? "Creating..." : "Create"}
         </AlertDialog.Action>
       </AlertDialog.Footer>
@@ -519,9 +554,10 @@
 <AlertDialog.Root
   open={createCourseDialogOpen}
   onOpenChange={(open) => (createCourseDialogOpen = open)}
+  data-test="create-course-dialog"
 >
   <AlertDialog.Content class="max-w-md">
-    <form on:submit={createNewCourse}>
+    <form on:submit={createNewCourse} data-test="create-course-form">
       <AlertDialog.Header>
         <AlertDialog.Title>Add New Course</AlertDialog.Title>
         <AlertDialog.Description>
@@ -540,6 +576,7 @@
             on:keydown={handleCourseNameKeydown}
             class="w-full"
             autofocus
+            data-test="new-course-name-input"
           />
         </div>
 
@@ -553,6 +590,7 @@
             min="0"
             step="0.5"
             class="w-full"
+            data-test="new-course-credits-input"
           />
         </div>
 
@@ -560,13 +598,19 @@
           <div class="space-y-2">
             <Label>Prerequisites</Label>
             {#if isLoadingCourses}
-              <div class="p-2 text-center">Loading courses...</div>
+              <div class="p-2 text-center" data-test="loading-courses">
+                Loading courses...
+              </div>
             {:else}
               <div
                 class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-md p-2"
+                data-test="prerequisites-list"
               >
                 {#each availableCourses as course}
-                  <div class="flex items-center space-x-2">
+                  <div
+                    class="flex items-center space-x-2"
+                    data-test="prerequisite-item"
+                  >
                     <Checkbox
                       id={`cmd-prereq-${course.id}`}
                       checked={selectedPrereqs.includes(course.id)}
@@ -579,6 +623,8 @@
                           );
                         }
                       }}
+                      data-test="prerequisite-checkbox"
+                      data-course-id={course.id}
                     />
                     <Label
                       for={`cmd-prereq-${course.id}`}
@@ -594,8 +640,14 @@
         {/if}
       </div>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-        <AlertDialog.Action type="submit" disabled={isCreatingCourse}>
+        <AlertDialog.Cancel data-test="cancel-create-course"
+          >Cancel</AlertDialog.Cancel
+        >
+        <AlertDialog.Action
+          type="submit"
+          disabled={isCreatingCourse}
+          data-test="confirm-create-course"
+        >
           {isCreatingCourse ? "Adding..." : "Add Course"}
         </AlertDialog.Action>
       </AlertDialog.Footer>
@@ -607,6 +659,7 @@
 <AlertDialog.Root
   open={searchTemplateDialogOpen}
   onOpenChange={(open) => (searchTemplateDialogOpen = open)}
+  data-test="search-templates-dialog"
 >
   <AlertDialog.Content>
     <AlertDialog.Header>
@@ -624,11 +677,17 @@
         bind:this={templateSearchInputEl}
         on:keydown={handleTemplateSearchKeydown}
         autofocus
+        data-test="template-search-input"
       />
     </div>
     <AlertDialog.Footer>
-      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-      <AlertDialog.Action on:click={executeTemplateSearch}>
+      <AlertDialog.Cancel data-test="cancel-template-search"
+        >Cancel</AlertDialog.Cancel
+      >
+      <AlertDialog.Action
+        on:click={executeTemplateSearch}
+        data-test="confirm-template-search"
+      >
         Search
       </AlertDialog.Action>
     </AlertDialog.Footer>

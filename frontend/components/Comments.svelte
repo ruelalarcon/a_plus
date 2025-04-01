@@ -147,28 +147,40 @@
   loadComments();
 </script>
 
-<div class="space-y-4">
+<div class="space-y-4" data-test="comments-container">
   {#if isLoading}
-    <div class="text-center py-4 text-muted-foreground">
+    <div
+      class="text-center py-4 text-muted-foreground"
+      data-test="comments-loading"
+    >
       Loading comments...
     </div>
   {:else}
-    <form class="space-y-4" on:submit|preventDefault={submitComment}>
+    <form
+      class="space-y-4"
+      on:submit|preventDefault={submitComment}
+      data-test="comment-form"
+    >
       <Textarea
         bind:value={newComment}
         placeholder="Add a comment..."
         rows="3"
         disabled={isSubmitting}
+        data-test="new-comment-textarea"
       />
       <div class="flex justify-end">
-        <Button type="submit" disabled={isSubmitting || !newComment.trim()}>
+        <Button
+          type="submit"
+          disabled={isSubmitting || !newComment.trim()}
+          data-test="post-comment-btn"
+        >
           {isSubmitting ? "Posting..." : "Post Comment"}
         </Button>
       </div>
     </form>
 
     {#if comments.length > 0}
-      <div class="space-y-4">
+      <div class="space-y-4" data-test="comments-list">
         {#each comments as comment}
           <CommentCard
             {comment}
@@ -182,7 +194,10 @@
         {/each}
       </div>
     {:else}
-      <p class="text-center text-muted-foreground">
+      <p
+        class="text-center text-muted-foreground"
+        data-test="no-comments-message"
+      >
         No comments yet. Be the first to comment!
       </p>
     {/if}
@@ -192,6 +207,7 @@
 <AlertDialog.Root
   open={isDialogOpen}
   onOpenChange={(open) => (isDialogOpen = open)}
+  data-test="delete-comment-dialog"
 >
   <AlertDialog.Content>
     <AlertDialog.Header>
@@ -202,11 +218,15 @@
       </AlertDialog.Description>
     </AlertDialog.Header>
     <AlertDialog.Footer>
-      <AlertDialog.Cancel disabled={isDeleting}>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Cancel
+        disabled={isDeleting}
+        data-test="cancel-delete-comment-btn">Cancel</AlertDialog.Cancel
+      >
       <AlertDialog.Action
         on:click={deleteComment}
         disabled={isDeleting}
         class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        data-test="confirm-delete-comment-btn"
       >
         {isDeleting ? "Deleting..." : "Delete"}
       </AlertDialog.Action>

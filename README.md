@@ -12,8 +12,7 @@ A web application for students to track course grades, share grade calculation t
 2. Create a `.env` file with:
    ```
    NODE_ENV=development # options: production, development, test
-   # Note: don't use production unless deploying on a site with valid SSL certificates, etc.
-
+   # Note: don't use NODE_ENV=production unless deploying on a site with valid SSL certificates, etc.
    PORT=3000
    SESSION_SECRET=your-secret-key-here
    ```
@@ -31,21 +30,31 @@ A web application for students to track course grades, share grade calculation t
 
 ## Testing
 
-The application includes a comprehensive test suite using Jest. The tests operate a separate test database to avoid affecting production data.
+The application includes a comprehensive test suite utilizing Jest unit tests and Cypress E2E integration tests. The tests operate a separate test database to avoid affecting production data.
 
 ### Running Tests
 
-1. Create a `.env.test` file (if does not already exist) with:
-   ```
-   NODE_ENV=test
-   SESSION_SECRET=test_secret_key
-   PORT=3001
-   ```
-
-2. Run the tests:
+1. Run the Jest tests:
    ```bash
    npm test
    ```
+
+2. Run the Cypress tests:
+   ```bash
+   npm run cypress:run
+   ```
+
+3. Optionally, you can view the Cypress tests run yourself:
+   ```bash
+   npm run cypress:open
+   ```
+   Then, open E2E test specs, letting you watch each test spec run
+
+4. You're also able to run the project locally but using the test database:
+   ```bash
+   npm run dev:test
+   ```
+   The test database clears all data each run so it's easy to test scenarios. Additionally, when on the test database you can go to `/reset` to reset the database, and `/seed` to seed the database with some dummy data.
 
 ### Test Structure
 
@@ -57,15 +66,22 @@ server/
     courses.test.js       # Course endpoint tests
     templates.test.js     # Template endpoint tests
     users.test.js         # User endpoint tests
-    test-helpers.js       # Helper functions for tests
+    testHelpers.js       # Helper functions for tests
     setup.js              # Setup for individual test files
 frontend/
   __tests__/              # Frontend test files
     utils/
       gradeCalculations.test.js  # Tests for grade calculation utilities
       courseSorting.test.js      # Tests for course sorting utilities
+cypress/
+  e2e/                    # Cypress E2E integration test specs
+  fixtures/               # Data fixtures for cypress tests
+  support/                # Helpers for E2E tests
+    commands.js           # Helper commands called within Cypress
+    e2e.js                # E2E test setup
 jest.config.js            # Jest configuration
 jest.setup.js             # Global test setup and teardown
+cypress.config.js         # Cypress configuration
 babel.config.js           # Babel configuration for testing
 ```
 
@@ -99,12 +115,26 @@ The test suite covers both backend API endpoints and frontend utility functions.
 
 #### Key Components
 - `App.svelte`: Main router and authentication flow
-- `Card.svelte`: Reusable card component for consistent UI
+- `AppShell.svelte`: Main layout component that wraps the application
+- `CalculatorCard.svelte`: Calculator item display component
+- `CourseCard.svelte`: Course card display component
+- `TemplateCard.svelte`: Template display component
 - `VoteButtons.svelte`: Template voting interface
 - `Comments.svelte`: Template comment system
-- `CourseTracker.svelte`: Course prerequisite visualization
-- `CalculatorList.svelte`: Personal calculator management
-- `TemplateList.svelte`: Published template management
+- `CommentCard.svelte`: Individual comment display component
+- `CommentsSheet.svelte`: Slide-out comment panel component
+- `CommandPalette.svelte`: Command interface for quick navigation and actions
+
+#### Routes
+- `Index.svelte`: Landing page component
+- `Login.svelte`: User login page
+- `Register.svelte`: User registration page
+- `Calculator.svelte`: Calculator editing/viewing page
+- `Calculators.svelte`: List of user's calculators
+- `Courses.svelte`: Course management and visualization
+- `Search.svelte`: Template search interface
+- `TemplatePreview.svelte`: Template details view
+- `User.svelte`: User profile page
 
 #### Authentication Flow
 - Unauthenticated users can only access /, /login, /register, and /template/:id
@@ -199,6 +229,7 @@ This project relies on several external dependencies:
 - **@sveltejs/vite-plugin-svelte**: Vite plugin for Svelte
 - **tailwindcss** and plugins: CSS framework
 - **jest**: Testing framework
+- **cypress**: End-to-end testing framework for integration tests
 - **supertest**: HTTP assertion library
 - **svelte**: Component framework
 - **svelte-sonner**: Toast notifications

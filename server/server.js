@@ -8,6 +8,8 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
+import { clearAllTables } from "./db.js";
+import testRoutes from "./utils/testRoutes.js";
 
 // Import logger and create server-specific logger
 import { createLogger } from "./utils/logger.js";
@@ -118,12 +120,22 @@ const sessionOptions = {
   },
 };
 
-// Allow testing by ensuring cookies are sent with supertest
+// Set up testing environment
 if (process.env.NODE_ENV === "test") {
   // In test environments, make sure cookies work with supertest
   sessionOptions.resave = true;
   sessionOptions.saveUninitialized = true;
   sessionOptions.cookie.sameSite = false;
+
+  // Apply test routes
+  app.use(testRoutes);
+
+  try {
+    console.log("Clearing all tables for fresh test environment");
+    clearAllTables();
+  } catch (error) {
+    console.error("Error clearing all tables:", error);
+  }
 }
 
 app.use(session(sessionOptions));

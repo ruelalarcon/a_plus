@@ -1,7 +1,7 @@
 <script>
-  import { Link, navigate, useLocation } from "svelte-routing";
+  import { navigate, useLocation } from "svelte-routing";
   import { onMount } from "svelte";
-  import { openCommentsModal } from "../components/CommentsModal.svelte";
+  import { openCommentsSheet } from "../components/CommentsSheet.svelte";
   import VoteButtons from "../components/VoteButtons.svelte";
   import { query, mutate } from "../lib/graphql/client.js";
   import { CALCULATOR } from "../lib/graphql/queries.js";
@@ -13,6 +13,7 @@
   import {
     calculateFinalGrade,
     calculateRequiredGrade,
+    parseFractionOrFloat,
   } from "../lib/utils/gradeCalculations.js";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -283,7 +284,10 @@
         assessments: assessments.map((assessment) => ({
           name: assessment.name,
           weight: parseFloat(assessment.weight) || 0,
-          grade: assessment.grade ? parseFloat(assessment.grade) : null,
+          grade:
+            assessment.grade === null || assessment.grade === undefined
+              ? null
+              : parseFractionOrFloat(assessment.grade),
         })),
       });
 
@@ -600,15 +604,17 @@
             {:else}
               <div class="space-y-4">
                 <!-- Table header -->
-                <div
-                  class="grid grid-cols-12 gap-4 font-medium text-sm text-muted-foreground mb-1 px-2 md:grid"
-                >
-                  <span class="col-span-1"></span>
-                  <span class="col-span-4">Assessment</span>
-                  <span class="col-span-2 text-center">Weight (%)</span>
-                  <span class="col-span-3 text-center">Grade (%)</span>
-                  <span class="col-span-2"></span>
-                </div>
+                {#if !isMobile}
+                  <div
+                    class="grid grid-cols-12 gap-4 font-medium text-sm text-muted-foreground mb-1 px-2 md:grid"
+                  >
+                    <span class="col-span-1"></span>
+                    <span class="col-span-4">Assessment</span>
+                    <span class="col-span-2 text-center">Weight (%)</span>
+                    <span class="col-span-3 text-center">Grade (%)</span>
+                    <span class="col-span-2"></span>
+                  </div>
+                {/if}
 
                 <!-- Desktop Layout -->
                 <div class="hidden md:block space-y-4">
@@ -657,12 +663,21 @@
                       </div>
                       <div class="col-span-3">
                         <Input
-                          type="number"
+                          type="text"
                           bind:value={assessment.grade}
-                          min="0"
-                          max="100"
                           placeholder="Not graded"
                           class="text-center"
+                          on:input={(e) => {
+                            const parsed = parseFractionOrFloat(e.target.value);
+                            if (
+                              parsed !== null &&
+                              (parsed < 0 || parsed > 100)
+                            ) {
+                              e.target.value = assessment.grade;
+                              return;
+                            }
+                            assessment.grade = e.target.value;
+                          }}
                         />
                       </div>
                       <div class="col-span-2 flex justify-end">
@@ -748,12 +763,23 @@
                             >
                             <Input
                               id={`grade-${i}`}
-                              type="number"
+                              type="text"
                               bind:value={assessment.grade}
-                              min="0"
-                              max="100"
                               placeholder="—"
                               class="text-center"
+                              on:input={(e) => {
+                                const parsed = parseFractionOrFloat(
+                                  e.target.value
+                                );
+                                if (
+                                  parsed !== null &&
+                                  (parsed < 0 || parsed > 100)
+                                ) {
+                                  e.target.value = assessment.grade;
+                                  return;
+                                }
+                                assessment.grade = e.target.value;
+                              }}
                             />
                           </div>
                         </div>
@@ -767,6 +793,9 @@
                 <Button variant="outline" on:click={addAssessment}>
                   <Plus class="h-4 w-4 mr-2" />
                   Add Assessment
+                  {#if !isMobile}
+                    <Badge variant="secondary" class="ml-2">Alt+N</Badge>
+                  {/if}
                 </Button>
                 <Button
                   on:click={saveCalculator}
@@ -829,7 +858,7 @@
                   variant="outline"
                   size="sm"
                   class="w-full justify-center"
-                  on:click={() => openCommentsModal(calculator.template_id)}
+                  on:click={() => openCommentsSheet(calculator.template_id)}
                 >
                   <MessageSquare class="h-4 w-4 mr-2" />
                   View Comments

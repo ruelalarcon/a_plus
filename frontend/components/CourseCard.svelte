@@ -1,13 +1,6 @@
 <script>
   import { Button } from "$lib/components/ui/button";
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-  } from "$lib/components/ui/card";
+  import * as Card from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
   import { Checkbox } from "$lib/components/ui/checkbox";
   import * as Tooltip from "$lib/components/ui/tooltip";
@@ -38,19 +31,21 @@
   $: statusIcon = isCompleted ? Check : X;
 </script>
 
-<Card
+<Card.Card
   class="w-full h-full flex flex-col transition-all duration-200 hover:shadow-md"
+  data-test="course-card"
+  data-course-id={course.id}
 >
-  <CardHeader>
+  <Card.CardHeader>
     <div class="flex justify-between items-start">
       <div class="flex-1">
-        <CardTitle class="text-xl font-bold flex items-center gap-2">
+        <Card.CardTitle class="text-xl font-bold flex items-center gap-2">
           <Book class="h-5 w-5 text-primary" />
-          {course.name}
-        </CardTitle>
-        <CardDescription>
+          <span data-test="course-name">{course.name}</span>
+        </Card.CardTitle>
+        <Card.CardDescription data-test="course-credits">
           {course.credits} Credit{course.credits !== 1 ? "s" : ""}
-        </CardDescription>
+        </Card.CardDescription>
       </div>
       <div class="flex items-center gap-1">
         <Tooltip.Root>
@@ -60,6 +55,7 @@
               size="icon"
               class="h-8 w-8"
               on:click={() => onEdit(course)}
+              data-test="edit-course-btn"
             >
               <Pencil class="h-4 w-4" />
             </Button>
@@ -74,6 +70,7 @@
               size="icon"
               class="h-8 w-8 text-destructive hover:text-destructive"
               on:click={() => onDelete(course)}
+              data-test="delete-course-btn"
             >
               <Trash2 class="h-4 w-4" />
             </Button>
@@ -82,9 +79,9 @@
         </Tooltip.Root>
       </div>
     </div>
-  </CardHeader>
+  </Card.CardHeader>
 
-  <CardContent>
+  <Card.CardContent>
     <div class="space-y-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
@@ -92,6 +89,7 @@
             id={`complete-${course.id}`}
             checked={isCompleted}
             onCheckedChange={() => onToggleComplete(course)}
+            data-test="complete-checkbox"
           />
           <label
             for={`complete-${course.id}`}
@@ -100,7 +98,7 @@
             Mark as completed
           </label>
         </div>
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-1" data-test="course-status">
           <svelte:component
             this={statusIcon}
             class={`h-4 w-4 ${statusColor}`}
@@ -112,30 +110,35 @@
       </div>
 
       {#if hasPrerequisites}
-        <div>
+        <div data-test="prerequisites-section">
           <h4
             class="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-1"
           >
             <GraduationCap class="h-3.5 w-3.5" />
             Prerequisites
           </h4>
-          <p class="text-sm">{prerequisiteNames}</p>
+          <p class="text-sm" data-test="prerequisites-list">
+            {prerequisiteNames}
+          </p>
         </div>
       {/if}
     </div>
-  </CardContent>
+  </Card.CardContent>
 
-  <CardFooter class="mt-auto pt-2">
+  <Card.CardFooter class="mt-auto pt-2">
     {#if hasPrerequisites}
-      <Badge variant="outline" class="mr-2">
+      <Badge variant="outline" class="mr-2" data-test="prerequisites-badge">
         {course.prerequisites.length} Prerequisite{course.prerequisites
           .length !== 1
           ? "s"
           : ""}
       </Badge>
     {/if}
-    <Badge variant={isCompleted ? "default" : "secondary"}>
+    <Badge
+      variant={isCompleted ? "default" : "secondary"}
+      data-test="status-badge"
+    >
       {isCompleted ? "Completed" : "In Progress"}
     </Badge>
-  </CardFooter>
-</Card>
+  </Card.CardFooter>
+</Card.Card>

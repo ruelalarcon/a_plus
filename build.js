@@ -16,35 +16,63 @@ const distExists = fs.existsSync("./dist");
 // Function to get hash of directory content
 function getDirectoryHash(directory) {
   const files = [];
+  const excludeDirs = [
+    "node_modules",
+    ".git",
+    "dist",
+    "out",
+    "logs",
+    "cypress"
+  ];
+
+  function shouldExclude(itemPath) {
+    return excludeDirs.some((dir) => {
+      const normPath = path.normalize(itemPath);
+      // Check if the path contains any of the excluded directories
+      return (
+        normPath.includes(`${path.sep}${dir}${path.sep}`) ||
+        normPath.includes(`${path.sep}${dir}`) ||
+        normPath === dir
+      );
+    });
+  }
 
   function processDirectory(dir) {
-    const items = fs.readdirSync(dir);
+    try {
+      const items = fs.readdirSync(dir);
 
-    for (const item of items) {
-      const itemPath = path.join(dir, item);
-      const stats = fs.statSync(itemPath);
+      for (const item of items) {
+        const itemPath = path.join(dir, item);
 
-      if (stats.isDirectory()) {
-        processDirectory(itemPath);
-      } else {
-        // Skip node_modules, .git, and dist directories
-        if (
-          !itemPath.includes("node_modules") &&
-          !itemPath.includes(".git") &&
-          !itemPath.includes("dist") &&
-          !itemPath.includes("out") &&
-          !itemPath.includes("logs") &&
-          !itemPath.includes("cypress/screenshots") &&
-          !itemPath.includes("cypress/videos")
-        ) {
-          const content = fs.readFileSync(itemPath);
-          files.push({
-            path: itemPath,
-            content: content,
-            mtime: stats.mtime.getTime(),
-          });
+        // Skip excluded directories/paths early
+        if (shouldExclude(itemPath)) {
+          continue;
+        }
+
+        try {
+          const stats = fs.statSync(itemPath);
+
+          if (stats.isDirectory()) {
+            processDirectory(itemPath);
+          } else if (stats.isFile()) {
+            try {
+              const content = fs.readFileSync(itemPath);
+              files.push({
+                path: itemPath,
+                content: content,
+                mtime: stats.mtime.getTime(),
+              });
+            } catch (error) {
+              console.warn(`Failed to read file: ${itemPath}`, error.message);
+            }
+          }
+          // Ignore symlinks and other special files
+        } catch (error) {
+          console.warn(`Failed to stat: ${itemPath}`, error.message);
         }
       }
+    } catch (error) {
+      console.warn(`Failed to read directory: ${dir}`, error.message);
     }
   }
 

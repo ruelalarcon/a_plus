@@ -80,6 +80,112 @@ describe("Authentication API", () => {
         "Username already exists"
       );
     });
+
+    it("should reject usernames shorter than 3 characters", async () => {
+      const response = await request.post("/graphql").send({
+        query: `
+          mutation Register($username: String!, $password: String!) {
+            register(username: $username, password: $password) {
+              id
+              username
+            }
+          }
+        `,
+        variables: {
+          username: "ab",
+          password: testUser.password,
+        },
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+      expect(response.body.errors[0].message).toContain(
+        "between 3 and 28 characters"
+      );
+    });
+
+    it("should reject usernames longer than 28 characters", async () => {
+      const response = await request.post("/graphql").send({
+        query: `
+          mutation Register($username: String!, $password: String!) {
+            register(username: $username, password: $password) {
+              id
+              username
+            }
+          }
+        `,
+        variables: {
+          username: "abcdefghijklmnopqrstuvwxyz12345", // 29 characters
+          password: testUser.password,
+        },
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+      expect(response.body.errors[0].message).toContain(
+        "between 3 and 28 characters"
+      );
+    });
+
+    it("should reject usernames with special characters", async () => {
+      const response = await request.post("/graphql").send({
+        query: `
+          mutation Register($username: String!, $password: String!) {
+            register(username: $username, password: $password) {
+              id
+              username
+            }
+          }
+        `,
+        variables: {
+          username: "test@user!",
+          password: testUser.password,
+        },
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+      expect(response.body.errors[0].message).toContain(
+        "letters, numbers, and underscores"
+      );
+    });
+
+    it("should accept valid usernames with letters, numbers, and underscores", async () => {
+      const validUsernames = [
+        "test_user_123",
+        "Test_User_123",
+        "___",
+        "123_abc",
+        "a".repeat(28),
+      ];
+
+      for (const username of validUsernames) {
+        const response = await request.post("/graphql").send({
+          query: `
+            mutation Register($username: String!, $password: String!) {
+              register(username: $username, password: $password) {
+                id
+                username
+              }
+            }
+          `,
+          variables: {
+            username,
+            password: testUser.password,
+          },
+        });
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.register).toHaveProperty(
+          "username",
+          username
+        );
+        expect(response.body.errors).toBeUndefined();
+
+        // Clear the database for the next test
+        clearAllTables();
+      }
+    });
   });
 
   describe("GraphQL login mutation", () => {

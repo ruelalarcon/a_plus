@@ -99,9 +99,12 @@
 
 <CommandPalette bind:open={commandPaletteOpen} />
 
-<div class="min-h-screen flex flex-col">
+<div class="min-h-screen flex flex-col" data-test="app-shell">
   <!-- Header -->
-  <header class="border-b bg-background sticky top-0 z-40">
+  <header
+    class="border-b bg-background sticky top-0 z-40"
+    data-test="app-header"
+  >
     <div class="w-full px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-4">
         {#if isMobile}
@@ -109,11 +112,12 @@
             variant="ghost"
             size="icon"
             on:click={() => (isSidebarOpen = !isSidebarOpen)}
+            data-test="mobile-menu-btn"
           >
             <Menu class="h-5 w-5" />
           </Button>
         {/if}
-        <Link to="/" class="flex items-center">
+        <Link to="/" class="flex items-center" data-test="app-logo">
           <div class="h-8 flex items-center">
             <img
               src={Logo}
@@ -132,6 +136,7 @@
             size="sm"
             on:click={openCommandPalette}
             class="hidden md:flex items-center gap-2"
+            data-test="command-palette-btn"
           >
             <Command class="h-4 w-4" />
             <span>Command Palette</span>
@@ -139,7 +144,7 @@
               <Badge variant="outline" class="py-0">Ctrl+K</Badge>
             </div>
           </Button>
-          <div class="text-sm text-muted-foreground">
+          <div class="text-sm text-muted-foreground" data-test="user-greeting">
             <span>Hi, <strong>{$username || "User"}</strong></span>
           </div>
         </div>
@@ -153,6 +158,7 @@
       <Sheet.Root
         open={isSidebarOpen}
         onOpenChange={(open) => (isSidebarOpen = open)}
+        data-test="mobile-sidebar"
       >
         <Sheet.Content side="left" class="w-72 p-0">
           <div class="h-full flex flex-col">
@@ -160,7 +166,7 @@
               <h2 class="font-semibold">Navigation</h2>
             </div>
 
-            <nav class="flex-1 overflow-auto">
+            <nav class="flex-1 overflow-auto" data-test="mobile-nav">
               <ul class="p-2 space-y-1">
                 {#each navItems as { path, label, icon, onClick }, i (currentPath + i)}
                   {@const pathValue =
@@ -172,12 +178,17 @@
                         variant={active ? "secondary" : "ghost"}
                         class="w-full justify-start gap-3"
                         on:click={onClick}
+                        data-test={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
                       >
                         <svelte:component this={icon} class="h-4 w-4" />
                         {label}
                       </Button>
                     {:else}
-                      <Link to={pathValue} on:click={closeSidebar}>
+                      <Link
+                        to={pathValue}
+                        on:click={closeSidebar}
+                        data-test={`nav-link-${label.toLowerCase().replace(/\s+/g, "-")}`}
+                      >
                         <Button
                           variant={active ? "secondary" : "ghost"}
                           class="w-full justify-start gap-3"
@@ -215,6 +226,7 @@
                   variant="outline"
                   class="w-full flex items-center gap-2"
                   on:click={logout}
+                  data-test="logout-btn-mobile"
                 >
                   <LogOut class="h-4 w-4" />
                   <span>Logout</span>
@@ -230,8 +242,9 @@
     {#if !isMobile && isSidebarOpen}
       <aside
         class="w-64 border-r bg-background h-[calc(100vh-3.5rem)] sticky top-14"
+        data-test="desktop-sidebar"
       >
-        <nav class="h-full flex flex-col">
+        <nav class="h-full flex flex-col" data-test="desktop-nav">
           <ul class="flex-1 p-4 space-y-2">
             {#each navItems as { path, label, icon, onClick }, i (currentPath + i)}
               {@const pathValue = typeof path === "function" ? path() : path}
@@ -242,12 +255,16 @@
                     variant={active ? "secondary" : "ghost"}
                     class="w-full justify-start gap-3"
                     on:click={onClick}
+                    data-test={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
                   >
                     <svelte:component this={icon} class="h-4 w-4" />
                     {label}
                   </Button>
                 {:else}
-                  <Link to={pathValue}>
+                  <Link
+                    to={pathValue}
+                    data-test={`nav-link-${label.toLowerCase().replace(/\s+/g, "-")}`}
+                  >
                     <Button
                       variant={active ? "secondary" : "ghost"}
                       class="w-full justify-start gap-3"
@@ -267,6 +284,7 @@
                 variant="outline"
                 class="w-full flex items-center gap-2"
                 on:click={logout}
+                data-test="logout-btn"
               >
                 <LogOut class="h-4 w-4" />
                 <span>Logout</span>
@@ -278,7 +296,7 @@
     {/if}
 
     <!-- Main Content -->
-    <main class="flex-1 min-h-[calc(100vh-3.5rem)]">
+    <main class="flex-1 min-h-[calc(100vh-3.5rem)]" data-test="main-content">
       <slot />
     </main>
   </div>

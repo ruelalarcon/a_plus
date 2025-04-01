@@ -111,19 +111,25 @@
 
 <Card
   class="w-full h-full flex flex-col transition-all duration-200 hover:shadow-md"
+  data-test="calculator-card"
+  data-calculator-id={calculator.id}
 >
   <CardHeader>
     <div class="flex justify-between items-start">
       <div class="flex-1">
         <CardTitle class="text-xl font-bold flex items-center gap-2">
           <Calculator class="h-5 w-5 text-primary" />
-          {calculator.name}
+          <span data-test="calculator-name">{calculator.name}</span>
         </CardTitle>
         <CardDescription>
           {#if assessmentCount > 0}
-            {assessmentCount} assessment{assessmentCount !== 1 ? "s" : ""}
+            <span data-test="assessment-count"
+              >{assessmentCount} assessment{assessmentCount !== 1
+                ? "s"
+                : ""}</span
+            >
           {:else}
-            No assessments yet
+            <span data-test="assessment-count">No assessments yet</span>
           {/if}
         </CardDescription>
       </div>
@@ -135,6 +141,7 @@
           disabled={isRenaming}
           on:click={renameCalculator}
           aria-label="Rename calculator"
+          data-test="rename-calculator-btn"
         >
           <Pencil class="h-4 w-4" />
         </Button>
@@ -145,6 +152,7 @@
           disabled={isDeleting}
           on:click={confirmDelete}
           aria-label="Delete calculator"
+          data-test="delete-calculator-btn"
         >
           <Trash2 class="h-4 w-4" />
         </Button>
@@ -165,16 +173,25 @@
                 <AlertCircle class="h-4 w-4 text-amber-500" />
               {/if}
             {/if}
-            <span class="font-medium text-lg">{finalGrade}%</span>
+            <span class="font-medium text-lg" data-test="final-grade"
+              >{finalGrade}%</span
+            >
           </div>
         </div>
 
         <div class="space-y-1">
           <div class="flex justify-between text-xs text-muted-foreground">
-            <span>Completed: {completedAssessments}/{assessmentCount}</span>
-            <span>{Math.round(completionPercentage)}%</span>
+            <span data-test="completion-count"
+              >Completed: {completedAssessments}/{assessmentCount}</span
+            >
+            <span data-test="completion-percentage"
+              >{Math.round(completionPercentage)}%</span
+            >
           </div>
-          <Progress value={completionPercentage} />
+          <Progress
+            value={completionPercentage}
+            data-test="completion-progress"
+          />
         </div>
       </div>
     </div>
@@ -182,7 +199,11 @@
 
   <CardFooter class="mt-auto">
     <Link to={`/calculator/${calculator.id}`} class="w-full">
-      <Button variant="default" class="w-full flex items-center gap-1">
+      <Button
+        variant="default"
+        class="w-full flex items-center gap-1"
+        data-test="open-calculator-btn"
+      >
         <ExternalLink class="h-3.5 w-3.5" />
         <span>Open Calculator</span>
       </Button>
@@ -193,6 +214,7 @@
 <AlertDialog.Root
   open={isDialogOpen}
   onOpenChange={(open) => (isDialogOpen = open)}
+  data-test="delete-dialog"
 >
   <AlertDialog.Content>
     <AlertDialog.Header>
@@ -203,11 +225,14 @@
       </AlertDialog.Description>
     </AlertDialog.Header>
     <AlertDialog.Footer>
-      <AlertDialog.Cancel disabled={isDeleting}>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Cancel disabled={isDeleting} data-test="cancel-delete-btn"
+        >Cancel</AlertDialog.Cancel
+      >
       <AlertDialog.Action
         on:click={deleteCalculator}
         disabled={isDeleting}
         class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        data-test="confirm-delete-btn"
       >
         {isDeleting ? "Deleting..." : "Delete"}
       </AlertDialog.Action>

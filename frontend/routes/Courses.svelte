@@ -239,33 +239,36 @@
     .reduce((sum, course) => sum + parseFloat(course.credits), 0);
 </script>
 
-<div class="bg-muted/40 min-h-screen">
+<div class="bg-muted/40 min-h-screen" data-test="courses-page">
   <div class="container mx-auto px-4 py-8">
     <header class="mb-8">
       <div
         class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
         <div>
-          <h1 class="text-3xl font-bold tracking-tight flex items-center gap-2">
+          <h1
+            class="text-3xl font-bold tracking-tight flex items-center gap-2"
+            data-test="page-title"
+          >
             <BookOpen class="h-8 w-8 text-primary" />
             Course Planner
           </h1>
-          <p class="text-muted-foreground">
+          <p class="text-muted-foreground" data-test="user-greeting">
             Welcome back, <strong>{$username}</strong>
           </p>
         </div>
 
         <div class="flex items-center gap-2">
           <div class="flex items-center gap-4">
-            <div class="text-center">
+            <div class="text-center" data-test="total-courses-stat">
               <p class="text-sm text-muted-foreground">Total Courses</p>
               <p class="text-2xl font-bold">{courses.length}</p>
             </div>
-            <div class="text-center">
+            <div class="text-center" data-test="completed-courses-stat">
               <p class="text-sm text-muted-foreground">Completed</p>
               <p class="text-2xl font-bold">{completedCount}</p>
             </div>
-            <div class="text-center">
+            <div class="text-center" data-test="total-credits-stat">
               <p class="text-sm text-muted-foreground">Total Credits</p>
               <p class="text-2xl font-bold">{totalCredits}</p>
             </div>
@@ -277,7 +280,7 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
       <!-- Sidebar with Add Course Form -->
       <div class="md:col-span-1">
-        <Card.Root>
+        <Card.Root data-test="add-course-card">
           <Card.Header>
             <Card.Title class="flex items-center gap-2">
               <Plus class="h-5 w-5" />
@@ -286,7 +289,11 @@
             <Card.Description>Add courses to your planner</Card.Description>
           </Card.Header>
           <Card.Content>
-            <form class="space-y-4" on:submit|preventDefault={addCourse}>
+            <form
+              class="space-y-4"
+              on:submit|preventDefault={addCourse}
+              data-test="add-course-form"
+            >
               <div class="space-y-2">
                 <Label for="new-course">Course Name</Label>
                 <Input
@@ -294,6 +301,7 @@
                   id="new-course"
                   bind:value={newCourseName}
                   placeholder="Enter course name"
+                  data-test="course-name-input"
                 />
               </div>
 
@@ -306,6 +314,7 @@
                   min="0"
                   step="0.5"
                   placeholder="Enter credit amount"
+                  data-test="course-credits-input"
                 />
               </div>
 
@@ -314,9 +323,13 @@
                   <Label>Prerequisites</Label>
                   <div
                     class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-md p-2"
+                    data-test="prerequisites-list"
                   >
                     {#each courses as course}
-                      <div class="flex items-center space-x-2">
+                      <div
+                        class="flex items-center space-x-2"
+                        data-test="prerequisite-item"
+                      >
                         <Checkbox
                           id={`prereq-${course.id}`}
                           checked={selectedPrereqs.includes(course.id)}
@@ -329,6 +342,8 @@
                               );
                             }
                           }}
+                          data-test="prerequisite-checkbox"
+                          data-course-id={course.id}
                         />
                         <Label
                           for={`prereq-${course.id}`}
@@ -345,7 +360,11 @@
             </form>
           </Card.Content>
           <Card.Footer>
-            <Button on:click={addCourse} class="w-full">
+            <Button
+              on:click={addCourse}
+              class="w-full"
+              data-test="add-course-btn"
+            >
               <Plus class="h-4 w-4 mr-2" />
               Add Course
             </Button>
@@ -353,7 +372,7 @@
         </Card.Root>
 
         <div class="mt-6">
-          <Card.Root>
+          <Card.Root data-test="progress-summary-card">
             <Card.Header>
               <Card.Title class="flex items-center gap-2">
                 <GraduationCap class="h-5 w-5" />
@@ -363,7 +382,10 @@
             <Card.Content>
               <div class="space-y-4">
                 <div>
-                  <div class="flex justify-between text-sm mb-1">
+                  <div
+                    class="flex justify-between text-sm mb-1"
+                    data-test="courses-completion"
+                  >
                     <span>Courses Completed</span>
                     <span>{completedCount} / {courses.length}</span>
                   </div>
@@ -373,11 +395,15 @@
                       style="width: {courses.length
                         ? (completedCount / courses.length) * 100
                         : 0}%"
+                      data-test="courses-progress-bar"
                     ></div>
                   </div>
                 </div>
                 <div>
-                  <div class="flex justify-between text-sm mb-1">
+                  <div
+                    class="flex justify-between text-sm mb-1"
+                    data-test="credits-completion"
+                  >
                     <span>Credits Completed</span>
                     <span>{completedCredits} / {totalCredits}</span>
                   </div>
@@ -387,6 +413,7 @@
                       style="width: {totalCredits
                         ? (completedCredits / totalCredits) * 100
                         : 0}%"
+                      data-test="credits-progress-bar"
                     ></div>
                   </div>
                 </div>
@@ -401,11 +428,22 @@
         <div
           class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6"
         >
-          <Tabs.Root bind:value={activeTab} class="w-full">
+          <Tabs.Root
+            bind:value={activeTab}
+            class="w-full"
+            data-test="course-tabs"
+          >
             <Tabs.List class="w-full sm:w-auto">
-              <Tabs.Trigger value="all">All Courses</Tabs.Trigger>
-              <Tabs.Trigger value="completed">Completed</Tabs.Trigger>
-              <Tabs.Trigger value="incomplete">In Progress</Tabs.Trigger>
+              <Tabs.Trigger value="all" data-test="all-courses-tab"
+                >All Courses</Tabs.Trigger
+              >
+              <Tabs.Trigger value="completed" data-test="completed-courses-tab"
+                >Completed</Tabs.Trigger
+              >
+              <Tabs.Trigger
+                value="incomplete"
+                data-test="incomplete-courses-tab">In Progress</Tabs.Trigger
+              >
             </Tabs.List>
           </Tabs.Root>
 
@@ -418,12 +456,16 @@
               placeholder="Search courses..."
               class="pl-8 w-full"
               bind:value={searchQuery}
+              data-test="course-search"
             />
           </div>
         </div>
 
         {#if filteredCourses.length > 0}
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 gap-4"
+            data-test="courses-grid"
+          >
             {#each filteredCourses as course}
               <CourseCard
                 {course}
@@ -434,16 +476,23 @@
             {/each}
           </div>
         {:else}
-          <div class="text-center py-12 bg-background rounded-lg border">
+          <div
+            class="text-center py-12 bg-background rounded-lg border"
+            data-test="empty-state"
+          >
             <GraduationCap
               class="h-12 w-12 mx-auto text-muted-foreground mb-4"
             />
             {#if searchQuery}
-              <p class="text-muted-foreground">No courses match your search.</p>
+              <p class="text-muted-foreground" data-test="empty-search-message">
+                No courses match your search.
+              </p>
             {:else if activeTab !== "all"}
-              <p class="text-muted-foreground">No {activeTab} courses found.</p>
+              <p class="text-muted-foreground" data-test="empty-tab-message">
+                No {activeTab} courses found.
+              </p>
             {:else}
-              <p class="text-muted-foreground">
+              <p class="text-muted-foreground" data-test="empty-all-message">
                 No courses added yet. Add your first course to get started!
               </p>
             {/if}
@@ -459,6 +508,7 @@
   <AlertDialog.Root
     open={!!editingCourse}
     onOpenChange={(open) => !open && cancelEdit()}
+    data-test="edit-course-dialog"
   >
     <AlertDialog.Content>
       <AlertDialog.Header>
@@ -475,6 +525,7 @@
             id="edit-course-name"
             bind:value={editingCourse.name}
             placeholder="Enter course name"
+            data-test="edit-course-name-input"
           />
         </div>
 
@@ -487,6 +538,7 @@
             min="0"
             step="0.5"
             placeholder="Enter credit amount"
+            data-test="edit-course-credits-input"
           />
         </div>
 
@@ -495,9 +547,13 @@
             <Label>Prerequisites</Label>
             <div
               class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto border rounded-md p-2"
+              data-test="edit-prerequisites-list"
             >
               {#each courses.filter((c) => c.id !== editingCourse.id) as course}
-                <div class="flex items-center space-x-2">
+                <div
+                  class="flex items-center space-x-2"
+                  data-test="edit-prerequisite-item"
+                >
                   <Checkbox
                     id={`edit-prereq-${course.id}`}
                     checked={editingPrereqs.includes(course.id)}
@@ -510,6 +566,8 @@
                         );
                       }
                     }}
+                    data-test="edit-prerequisite-checkbox"
+                    data-course-id={course.id}
                   />
                   <Label
                     for={`edit-prereq-${course.id}`}
@@ -524,8 +582,13 @@
         {/if}
       </div>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-        <AlertDialog.Action on:click={() => saveEdit(editingCourse)}>
+        <AlertDialog.Cancel data-test="cancel-edit-btn"
+          >Cancel</AlertDialog.Cancel
+        >
+        <AlertDialog.Action
+          on:click={() => saveEdit(editingCourse)}
+          data-test="save-edit-btn"
+        >
           Save Changes
         </AlertDialog.Action>
       </AlertDialog.Footer>
@@ -537,6 +600,7 @@
 <AlertDialog.Root
   open={deleteDialogOpen}
   onOpenChange={(open) => (deleteDialogOpen = open)}
+  data-test="delete-course-dialog"
 >
   <AlertDialog.Content>
     <AlertDialog.Header>
@@ -545,7 +609,7 @@
         Are you sure you want to delete this course? This action cannot be
         undone.
         {#if courseToDelete && isPrerequisiteForOtherCourses(courses, courseToDelete.id)}
-          <div class="mt-2 text-red-500">
+          <div class="mt-2 text-red-500" data-test="prerequisite-warning">
             Warning: This course is a prerequisite for other courses. Deleting
             it will remove it from their prerequisites.
           </div>
@@ -553,10 +617,13 @@
       </AlertDialog.Description>
     </AlertDialog.Header>
     <AlertDialog.Footer>
-      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Cancel data-test="cancel-delete-btn"
+        >Cancel</AlertDialog.Cancel
+      >
       <AlertDialog.Action
         on:click={deleteCourse}
         class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        data-test="confirm-delete-btn"
       >
         Delete
       </AlertDialog.Action>
