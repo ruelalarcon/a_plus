@@ -1,6 +1,6 @@
 # Grade Calculator App (A+Plus)
 
-A web application for students to track course grades, share grade calculation templates, and manage course prerequisites.
+> A web application for students to track course grades, share grade calculation templates, and manage course prerequisites.
 
 ## Development Setup
 
@@ -109,6 +109,8 @@ The test suite covers both backend API endpoints and frontend utility functions.
 - Visualize course dependencies in levels
 - Prevent circular prerequisites
 
+> It's important that course tracking is a separate feature from grade calculators as users may join the platform partially through university and it would be tedious to retroactively create grade calculators for classes you have already completed just to get accurate credit tracking
+
 ## Technical Architecture
 
 ### Frontend (Svelte)
@@ -213,7 +215,6 @@ GraphQL Schema includes:
 This project relies on several external dependencies:
 
 ### Production Dependencies
-- **@apollo/client**: GraphQL client for frontend
 - **@apollo/server**: GraphQL server implementation
 - **bcrypt**: Password hashing and verification
 - **better-sqlite3**: SQLite database driver
@@ -231,8 +232,10 @@ This project relies on several external dependencies:
 - **jest**: Testing framework
 - **cypress**: End-to-end testing framework for integration tests
 - **supertest**: HTTP assertion library
+- **start-server-and-test**: Allows the server to start before running tests
 - **svelte**: Component framework
 - **svelte-sonner**: Toast notifications
+- **lucide-svelte**: UI icons
 - **vite**: Build tool and development server
 - Additional utilities: bits-ui, clsx, tailwind-merge, tailwind-variants
 
@@ -245,6 +248,9 @@ This project relies on several external dependencies:
 - Votes can be removed (except creator's upvote)
 
 ### Template Search Ranking
+
+Templates on the search page are not simply filtered (meaning, once you create a template you should never have an empty search), they always "show" all the templates paginated, it's just that they are ordered according to the search parameters via the following classifications:
+
 1. Number of matching fields (name, term, year, institution)
 2. Institution match priority
 3. Name match priority

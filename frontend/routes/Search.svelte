@@ -105,7 +105,10 @@
         class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
         <div>
-          <h1 class="text-3xl font-bold tracking-tight flex items-center gap-2">
+          <h1
+            class="text-3xl font-bold tracking-tight flex items-center gap-2"
+            data-test="page-title"
+          >
             <Search class="h-8 w-8 text-primary" />
             Template Library
           </h1>
@@ -252,7 +255,7 @@
         </div>
       {:else if templates.length > 0}
         <div
-          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          class="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-6"
           data-test="templates-grid"
         >
           {#each templates as template}

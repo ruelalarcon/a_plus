@@ -8,7 +8,6 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
-import { clearAllTables } from "./db.js";
 import testRoutes from "./utils/testRoutes.js";
 
 // Import logger and create server-specific logger
@@ -129,13 +128,6 @@ if (process.env.NODE_ENV === "test") {
 
   // Apply test routes
   app.use(testRoutes);
-
-  try {
-    console.log("Clearing all tables for fresh test environment");
-    clearAllTables();
-  } catch (error) {
-    console.error("Error clearing all tables:", error);
-  }
 }
 
 app.use(session(sessionOptions));

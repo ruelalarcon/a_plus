@@ -1,4 +1,8 @@
-describe("Complete Authentication Flow", () => {
+/*
+ * Test suite to ensure all authentication flows in the future work as expected
+ */
+
+describe("Authentication Spec", () => {
   const timestamp = new Date().getTime();
   const randomNumber = Math.floor(Math.random() * 1000);
   const testUser = {
@@ -29,7 +33,10 @@ describe("Complete Authentication Flow", () => {
       testUser.password + "incorrect"
     );
     cy.get('[data-test="register-submit-btn"]').click();
-    cy.get("[data-description]").should("contain", "Passwords do not match");
+    cy.get("[data-description]").should(
+      "include.text",
+      "Passwords do not match"
+    );
   });
 
   // Test username validation rules (special chars, length limits)
@@ -42,17 +49,17 @@ describe("Complete Authentication Flow", () => {
     cy.get('[data-test="confirm-password-input"]').clear();
     cy.get('[data-test="confirm-password-input"]').type(testUser.password);
     cy.get('[data-test="register-submit-btn"]').click();
-    cy.get("[data-description]").should("contain", "underscores");
+    cy.get("[data-description]").should("include.text", "underscores");
     cy.get('[data-test="username-input"]').clear();
     cy.get('[data-test="username-input"]').type("t");
     cy.get('[data-test="register-submit-btn"]').click();
-    cy.get("[data-description]").should("contain", "between 3 and 28");
+    cy.get("[data-description]").should("include.text", "between 3 and 28");
     cy.get('[data-test="username-input"]').clear();
     cy.get('[data-test="username-input"]').type(
       "abcdefghijklmnopqrstuvwxyz1234567890"
     );
     cy.get('[data-test="register-submit-btn"]').click();
-    cy.get("[data-description]").should("contain", "between 3 and 28");
+    cy.get("[data-description]").should("include.text", "between 3 and 28");
   });
 
   // Test successful registration and access to protected routes
@@ -65,16 +72,14 @@ describe("Complete Authentication Flow", () => {
     cy.get('[data-test="confirm-password-input"]').clear();
     cy.get('[data-test="confirm-password-input"]').type(testUser.password);
     cy.get('[data-test="register-submit-btn"]').click();
-    cy.get('[data-test="page-title"]').should("contain", "Grade Calculators");
-    cy.get(
-      '[data-test="nav-link-my-courses"] > .ring-offset-background'
-    ).click();
-    cy.get('[data-test="page-title"]').should("contain", "Course Planner");
-    cy.get('[data-test="logout-btn"]').click();
-    cy.get('.pt-4 > [href="/register"] > .ring-offset-background').should(
-      "contain",
-      "Get Started"
+    cy.get('[data-test="page-title"]').should(
+      "include.text",
+      "Grade Calculators"
     );
+    cy.get('[data-test="nav-link-my-courses"]').click();
+    cy.get('[data-test="page-title"]').should("include.text", "Course Planner");
+    cy.get('[data-test="logout-btn"]').click();
+    cy.get('[href="/register"]').should("include.text", "Get Started");
   });
 
   // Verify that duplicate usernames are not allowed
@@ -87,7 +92,10 @@ describe("Complete Authentication Flow", () => {
     cy.get('[data-test="confirm-password-input"]').clear();
     cy.get('[data-test="confirm-password-input"]').type(testUser.password);
     cy.get('[data-test="register-submit-btn"]').click();
-    cy.get("[data-description]").should("contain", "Username already exists");
+    cy.get("[data-description]").should(
+      "include.text",
+      "Username already exists"
+    );
   });
 
   // Test login with previously registered user and verify protected route access
@@ -98,15 +106,13 @@ describe("Complete Authentication Flow", () => {
     cy.get('[data-test="password-input"]').clear();
     cy.get('[data-test="password-input"]').type(testUser.password);
     cy.get('[data-test="login-submit-btn"]').click();
-    cy.get('[data-test="page-title"]').should("contain", "Grade Calculators");
-    cy.get(
-      '[data-test="nav-link-my-courses"] > .ring-offset-background'
-    ).click();
-    cy.get('[data-test="page-title"]').should("contain", "Course Planner");
-    cy.get('[data-test="logout-btn"]').click();
-    cy.get('.pt-4 > [href="/register"] > .ring-offset-background').should(
-      "contain",
-      "Get Started"
+    cy.get('[data-test="page-title"]').should(
+      "include.text",
+      "Grade Calculators"
     );
+    cy.get('[data-test="nav-link-my-courses"]').click();
+    cy.get('[data-test="page-title"]').should("include.text", "Course Planner");
+    cy.get('[data-test="logout-btn"]').click();
+    cy.get('[href="/register"]').should("include.text", "Get Started");
   });
 });

@@ -1,5 +1,6 @@
 /**
- * GraphQL client for making GraphQL requests
+ * Apollo GraphQL client for making GraphQL requests, custom-built for more
+ * control over the @apollo/client package.
  */
 
 const GRAPHQL_ENDPOINT = "/graphql";

@@ -502,7 +502,12 @@
       >
         <div class="flex items-center gap-2">
           <button class="mr-2" on:click={() => handleNavigate("/")}>
-            <Button variant="ghost" size="icon" class="rounded-full">
+            <Button
+              variant="ghost"
+              size="icon"
+              class="rounded-full"
+              data-test="back-button"
+            >
               <ChevronLeft class="h-5 w-5" />
             </Button>
           </button>
@@ -525,6 +530,7 @@
           {:else}
             <h1
               class="text-3xl font-bold tracking-tight flex items-center gap-2"
+              data-test="calculator-title"
             >
               <Calculator class="h-8 w-8 text-primary" />
               {calculator.name}
@@ -545,6 +551,7 @@
             variant="default"
             on:click={openPublishDialog}
             disabled={assessments.length === 0}
+            data-test="publish-template-btn"
           >
             <FileUp class="h-4 w-4 mr-2" />
             Publish Template
@@ -580,6 +587,7 @@
             {#if weightWarning}
               <div
                 class="bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-md p-3 mb-4 text-amber-800 dark:text-amber-200"
+                data-test="weight-warning"
               >
                 <p class="text-sm">
                   Total weight: <strong>{totalWeight.toFixed(1)}%</strong>.
@@ -593,10 +601,16 @@
                 <BookOpen
                   class="h-12 w-12 mx-auto text-muted-foreground mb-4"
                 />
-                <p class="text-muted-foreground mb-4">
+                <p
+                  class="text-muted-foreground mb-4"
+                  data-test="no-assessments-message"
+                >
                   No assessments added yet.
                 </p>
-                <Button on:click={addAssessment}>
+                <Button
+                  on:click={addAssessment}
+                  data-test="add-first-assessment-btn"
+                >
                   <Plus class="h-4 w-4 mr-2" />
                   Add Your First Assessment
                 </Button>
@@ -649,6 +663,7 @@
                           type="text"
                           bind:value={assessment.name}
                           placeholder="Assessment name"
+                          data-test={`assessment-name-input-${i}`}
                         />
                       </div>
                       <div class="col-span-2">
@@ -659,6 +674,7 @@
                           max="100"
                           placeholder="Weight"
                           class="text-center"
+                          data-test={`assessment-weight-input-${i}`}
                         />
                       </div>
                       <div class="col-span-3">
@@ -667,6 +683,7 @@
                           bind:value={assessment.grade}
                           placeholder="Not graded"
                           class="text-center"
+                          data-test={`assessment-grade-input-${i}`}
                           on:input={(e) => {
                             const parsed = parseFractionOrFloat(e.target.value);
                             if (
@@ -736,6 +753,7 @@
                           type="text"
                           bind:value={assessment.name}
                           placeholder="Assessment name"
+                          data-test={`assessment-name-input-${i}-mobile`}
                         />
 
                         <div class="grid grid-cols-2 gap-2 mt-2">
@@ -753,20 +771,22 @@
                               max="100"
                               placeholder="Weight"
                               class="text-center"
+                              data-test={`assessment-weight-input-${i}-mobile`}
                             />
                           </div>
                           <div>
                             <label
-                              for={`grade-${i}`}
+                              for={`grade-${i}-mobile`}
                               class="text-xs text-muted-foreground block mb-1"
                               >Grade (%)</label
                             >
                             <Input
-                              id={`grade-${i}`}
+                              id={`grade-${i}-mobile`}
                               type="text"
                               bind:value={assessment.grade}
                               placeholder="—"
                               class="text-center"
+                              data-test={`assessment-grade-input-${i}-mobile`}
                               on:input={(e) => {
                                 const parsed = parseFractionOrFloat(
                                   e.target.value
@@ -790,7 +810,11 @@
               </div>
 
               <div class="flex justify-between mt-6">
-                <Button variant="outline" on:click={addAssessment}>
+                <Button
+                  variant="outline"
+                  on:click={addAssessment}
+                  data-test="add-assessment-btn"
+                >
                   <Plus class="h-4 w-4 mr-2" />
                   Add Assessment
                   {#if !isMobile}
@@ -801,6 +825,7 @@
                   on:click={saveCalculator}
                   disabled={isSaving}
                   class="flex items-center"
+                  data-test="save-calculator-btn"
                 >
                   <Save class="h-4 w-4 mr-2" />
                   {isSaving ? "Saving..." : "Save Changes"}
@@ -892,6 +917,7 @@
                   min="0"
                   max="100"
                   placeholder="Enter your target grade"
+                  data-test="min-desired-grade-input"
                 />
               </div>
 
@@ -900,6 +926,7 @@
                 on:click={saveCalculator}
                 class="w-full flex items-center justify-center"
                 disabled={isSaving}
+                data-test="save-target"
               >
                 <Save class="h-4 w-4 mr-2" />
                 Save Target
@@ -929,12 +956,14 @@
                   <Label class="text-muted-foreground">Current Average</Label>
                   <div
                     class={`px-2 py-1 rounded-md text-sm font-medium ${getStatusColor(finalGrade)}`}
+                    data-test="current-grade"
                   >
                     {finalGrade}%
                   </div>
                 </div>
                 <div
                   class={`h-10 rounded-md flex items-center justify-center border ${isPassingGrade ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"}`}
+                  data-test="grade-status"
                 >
                   {#if finalGrade === "N/A"}
                     <p class="text-sm font-medium">No graded assessments yet</p>
@@ -954,12 +983,14 @@
                   >
                   <div
                     class={`px-2 py-1 rounded-md text-sm font-medium ${getStatusColor(requiredGrade)}`}
+                    data-test="required-grade"
                   >
                     {requiredGrade}%
                   </div>
                 </div>
                 <div
                   class={`h-10 rounded-md flex items-center justify-center border ${isTargetPossible ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200"}`}
+                  data-test="target-status"
                 >
                   {#if requiredGrade === "N/A"}
                     <p class="text-sm font-medium">All assessments graded</p>
@@ -1043,6 +1074,7 @@
           id="template-name"
           bind:value={publishDetails.name}
           placeholder="Enter template name"
+          data-test="template-name-input"
         />
       </div>
       <div class="space-y-2">
@@ -1052,6 +1084,7 @@
           id="template-term"
           bind:value={publishDetails.term}
           placeholder="e.g. Fall, Winter, Spring"
+          data-test="template-term-input"
         />
       </div>
       <div class="grid grid-cols-2 gap-4">
@@ -1062,6 +1095,7 @@
             id="template-year"
             bind:value={publishDetails.year}
             placeholder="Year"
+            data-test="template-year-input"
           />
         </div>
         <div class="space-y-2">
@@ -1071,13 +1105,17 @@
             id="template-institution"
             bind:value={publishDetails.institution}
             placeholder="School or University"
+            data-test="template-institution-input"
           />
         </div>
       </div>
     </div>
     <AlertDialog.Footer>
       <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-      <AlertDialog.Action on:click={publishAsTemplate}>
+      <AlertDialog.Action
+        on:click={publishAsTemplate}
+        data-test="confirm-publish-btn"
+      >
         Publish Template
       </AlertDialog.Action>
     </AlertDialog.Footer>

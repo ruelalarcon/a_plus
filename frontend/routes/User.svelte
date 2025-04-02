@@ -209,7 +209,7 @@
           <Tabs.Content value="templates" data-test="templates-content">
             {#if templates.length > 0}
               <div
-                class="grid grid-cols-1 md:grid-cols-2 gap-6"
+                class="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-6"
                 data-test="templates-grid"
               >
                 {#each templates as template}

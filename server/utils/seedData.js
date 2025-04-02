@@ -9,6 +9,18 @@ import { createLogger } from "./logger.js";
 
 const seedLogger = createLogger("seed-data");
 
+// Predefined seed for deterministic random number generation
+let seed = 12345;
+
+/**
+ * Simple LCG which returns a random number based on a global seed
+ * @returns {number}
+ */
+function seededRandom() {
+  seed = (seed * 9301 + 49297) % 233280;
+  return seed / 233280;
+}
+
 // Example institutions for templates
 const institutions = [
   "University of Saskatchewan",
@@ -136,7 +148,7 @@ export async function seedDatabase() {
 
     // Add some random users
     for (let i = 1; i <= 15; i++) {
-      const username = `user_${i}_${Math.floor(Math.random() * 10000)}`;
+      const username = `user_${i}_${Math.floor(seededRandom() * 10000)}`;
       const hashedPassword = await bcrypt.hash("password123", 10);
       const result = db
         .prepare("INSERT INTO users (username, password) VALUES (?, ?)")
@@ -153,15 +165,15 @@ export async function seedDatabase() {
 
     for (const user of users) {
       // Each user creates 1-4 templates
-      const numTemplates = Math.floor(Math.random() * 4) + 1;
+      const numTemplates = Math.floor(seededRandom() * 4) + 1;
 
       for (let i = 0; i < numTemplates; i++) {
-        const courseIndex = Math.floor(Math.random() * courseTemplates.length);
+        const courseIndex = Math.floor(seededRandom() * courseTemplates.length);
         const course = courseTemplates[courseIndex];
         const institution =
-          institutions[Math.floor(Math.random() * institutions.length)];
-        const term = terms[Math.floor(Math.random() * terms.length)];
-        const year = years[Math.floor(Math.random() * years.length)];
+          institutions[Math.floor(seededRandom() * institutions.length)];
+        const term = terms[Math.floor(seededRandom() * terms.length)];
+        const year = years[Math.floor(seededRandom() * years.length)];
 
         const result = db
           .prepare(
@@ -178,7 +190,7 @@ export async function seedDatabase() {
 
         // Choose a random assessment template type
         const templateType =
-          templateTypes[Math.floor(Math.random() * templateTypes.length)];
+          templateTypes[Math.floor(seededRandom() * templateTypes.length)];
         const assessments = assessmentTemplatesByType[templateType];
 
         // Add assessments to template
@@ -198,7 +210,7 @@ export async function seedDatabase() {
     // Create calculators for each user - some based on templates, some custom
     for (const user of users) {
       // 2-6 calculators per user
-      const numCalculators = Math.floor(Math.random() * 5) + 2;
+      const numCalculators = Math.floor(seededRandom() * 5) + 2;
 
       for (let i = 0; i < numCalculators; i++) {
         let calculatorName,
@@ -208,7 +220,7 @@ export async function seedDatabase() {
         if (i < 2 && templates.length > 0) {
           // Use an existing template for some calculators
           const randomTemplate =
-            templates[Math.floor(Math.random() * templates.length)];
+            templates[Math.floor(seededRandom() * templates.length)];
           templateId = randomTemplate.id;
           calculatorName = randomTemplate.name;
 
@@ -223,18 +235,18 @@ export async function seedDatabase() {
         } else {
           // Create a custom calculator
           const courseIndex = Math.floor(
-            Math.random() * courseTemplates.length
+            seededRandom() * courseTemplates.length
           );
           calculatorName = courseTemplates[courseIndex].name;
 
           // Choose a random assessment template type
           const templateType =
-            templateTypes[Math.floor(Math.random() * templateTypes.length)];
+            templateTypes[Math.floor(seededRandom() * templateTypes.length)];
           assessmentsToUse = assessmentTemplatesByType[templateType];
         }
 
         // Add the calculator
-        const minDesiredGrade = Math.floor(Math.random() * 20) + 70; // 70-90
+        const minDesiredGrade = Math.floor(seededRandom() * 20) + 70; // 70-90
         const result = db
           .prepare(
             "INSERT INTO calculators (user_id, name, template_id, min_desired_grade) VALUES (?, ?, ?, ?)"
@@ -246,8 +258,8 @@ export async function seedDatabase() {
         // Add assessments to calculator with some grades filled in
         for (const assessment of assessmentsToUse) {
           // 50% chance of having a grade, otherwise null (in progress)
-          const hasGrade = Math.random() > 0.5;
-          const grade = hasGrade ? Math.floor(Math.random() * 30) + 70 : null; // 70-100 or null
+          const hasGrade = seededRandom() > 0.5;
+          const grade = hasGrade ? Math.floor(seededRandom() * 30) + 70 : null; // 70-100 or null
 
           db.prepare(
             "INSERT INTO assessments (calculator_id, name, weight, grade) VALUES (?, ?, ?, ?)"
@@ -268,16 +280,16 @@ export async function seedDatabase() {
       userCourses[user.id] = [];
 
       // 5-12 courses per user
-      const numCourses = Math.floor(Math.random() * 8) + 5;
+      const numCourses = Math.floor(seededRandom() * 8) + 5;
 
       // Shuffle the course templates and pick the first numCourses
       const shuffledCourses = [...courseTemplates]
-        .sort(() => 0.5 - Math.random())
+        .sort(() => seededRandom() - 0.5)
         .slice(0, numCourses);
 
       for (const course of shuffledCourses) {
         // 60% chance of being completed
-        const completed = Math.random() < 0.6 ? 1 : 0;
+        const completed = seededRandom() < 0.6 ? 1 : 0;
 
         const result = db
           .prepare(
@@ -319,7 +331,7 @@ export async function seedDatabase() {
           // Some lower level courses are prerequisites for higher level ones
           for (let i = 0; i < subjectCourses.length - 1; i++) {
             // 70% chance of being a prerequisite for the next level
-            if (Math.random() < 0.7) {
+            if (seededRandom() < 0.7) {
               try {
                 db.prepare(
                   "INSERT INTO course_prerequisites (course_id, prerequisite_id) VALUES (?, ?)"
@@ -354,10 +366,10 @@ export async function seedDatabase() {
 
       // Add comments (20-50% chance per user)
       for (const user of nonCreatorUsers) {
-        if (Math.random() < 0.35) {
+        if (seededRandom() < 0.35) {
           // 35% chance of comment
           const commentIndex = Math.floor(
-            Math.random() * templateComments.length
+            seededRandom() * templateComments.length
           );
 
           db.prepare(
@@ -367,9 +379,9 @@ export async function seedDatabase() {
         }
 
         // Add votes (30-80% chance per user)
-        if (Math.random() < 0.55) {
+        if (seededRandom() < 0.55) {
           // 55% chance of voting
-          const vote = Math.random() < 0.8 ? 1 : -1; // 80% chance of upvote
+          const vote = seededRandom() < 0.8 ? 1 : -1; // 80% chance of upvote
 
           try {
             db.prepare(
