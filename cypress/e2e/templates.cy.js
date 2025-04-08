@@ -1,9 +1,9 @@
 /*
  * Test suite for interactions with public templates.
- * Covers both user stories by "RanchBoyRick".
+ * Covers both user stories by "Ranch Boy Rick".
  */
-describe("TemplatesSpec", () => {
 
+describe("Templates Spec", () => {
   const timestamp = new Date().getTime();
   const randomNumber = Math.floor(Math.random() * 1000);
   const testUser = {
@@ -17,7 +17,6 @@ describe("TemplatesSpec", () => {
     cy.clearLocalStorage();
     cy.request("GET", "/reset");
   });
-
 
   it("Test commenting on a function", function () {
     // Register a new user
@@ -94,32 +93,46 @@ describe("TemplatesSpec", () => {
     );
 
     // Viewing empty comment section
-    cy.get('[data-test="vote-count"]').should('have.text', '1');
+    cy.get('[data-test="vote-count"]').should("have.text", "1");
     cy.get('[data-test="view-comments-btn"]').click();
-    cy.get('[data-test="no-comments-message"]').should('have.text', 'No comments yet. Be the first to comment!');
+    cy.get('[data-test="no-comments-message"]').should(
+      "have.text",
+      "No comments yet. Be the first to comment!"
+    );
 
     // Adding a comment
     cy.get('[data-test="new-comment-textarea"]').click();
-    cy.get('[data-test="new-comment-textarea"]').type('comment');
+    cy.get('[data-test="new-comment-textarea"]').type("comment");
     cy.get('[data-test="comments-sheet-body"]').click();
     cy.get('[data-test="post-comment-btn"]').click();
-    cy.get('[data-test="comment-content"]').should('have.text', 'comment');
-    cy.get('[data-test="comment-card"] > .flex-col > .font-semibold').should('include.text', testUser.username);
-    cy.get('[data-test="comment-date"] > span').should('have.text', 'Apr 8, 2025');
+    cy.get('[data-test="comment-content"]').should("have.text", "comment");
+    cy.get('[data-test="comment-card"] > .flex-col > .font-semibold').should(
+      "include.text",
+      testUser.username
+    );
+    cy.get('[data-test="comment-date"] > span').should(
+      "have.text",
+      "Apr 8, 2025"
+    );
 
     // Editing a comment
     cy.get('[data-test="edit-comment-btn"]').click();
     cy.get('[data-test="comment-edit-textarea"]').click();
-    cy.get('[data-test="comment-edit-textarea"]').type(' edited');
+    cy.get('[data-test="comment-edit-textarea"]').type(" edited");
     cy.get('[data-test="save-edit-btn"]').click();
-    cy.get('[data-test="comment-content"]').should('have.text', 'comment edited');
+    cy.get('[data-test="comment-content"]').should(
+      "have.text",
+      "comment edited"
+    );
 
     // Deleting a comment
     cy.get('[data-test="delete-comment-btn"]').click();
     cy.get('[data-test="confirm-delete-comment-btn"]').click();
-    cy.get('[data-test="no-comments-message"]').should('have.text', 'No comments yet. Be the first to comment!');
-  })
-
+    cy.get('[data-test="no-comments-message"]').should(
+      "have.text",
+      "No comments yet. Be the first to comment!"
+    );
+  });
 
   it("Test upvoting another user's template", function () {
     // Register a new user
@@ -192,25 +205,31 @@ describe("TemplatesSpec", () => {
     cy.get('[data-test="register-submit-btn"]').click();
 
     // Test upvote button
-    cy.get('[data-test="nav-link-search-templates"] > .ring-offset-background').click();
+    cy.get(
+      '[data-test="nav-link-search-templates"] > .ring-offset-background'
+    ).click();
     cy.get('[data-test="upvote-btn"]').click();
-    cy.get('[d="M7 10v12"]').should('have.attr', 'd', 'M7 10v12');
+    cy.get('[d="M7 10v12"]').should("have.attr", "d", "M7 10v12");
     cy.get('[data-test="vote-count"]').click();
     cy.get('[data-test="vote-count"]').click();
-    cy.get('[data-test="vote-count"]').should('have.text', '2');
-    cy.get('[data-test="template-card"] > .flex-col > .justify-between').click();
+    cy.get('[data-test="vote-count"]').should("have.text", "2");
+    cy.get(
+      '[data-test="template-card"] > .flex-col > .justify-between'
+    ).click();
     cy.get('[data-test="upvote-btn"]').click();
-    cy.get('[data-test="vote-count"]').should('have.text', '1');
+    cy.get('[data-test="vote-count"]').should("have.text", "1");
 
     // Test downvote button
     cy.get('[data-test="downvote-btn"] > .lucide-icon').click();
-    cy.get('[data-test="vote-count"]').should('have.text', '0');
+    cy.get('[data-test="vote-count"]').should("have.text", "0");
     cy.get('[data-test="nav-my-profile"]').click();
-    cy.get('[data-test="nav-link-search-templates"] > .ring-offset-background').click();
-    cy.get('[data-test="vote-count"]').should('have.text', '0');
+    cy.get(
+      '[data-test="nav-link-search-templates"] > .ring-offset-background'
+    ).click();
+    cy.get('[data-test="vote-count"]').should("have.text", "0");
 
     // Upvote after downvoting (so that it doesn't increment but adjusts original value)
     cy.get('[data-test="upvote-btn"]').click();
-    cy.get('[data-test="vote-count"]').should('have.text', '2');
-  })
-})
+    cy.get('[data-test="vote-count"]').should("have.text", "2");
+  });
+});
