@@ -100,8 +100,13 @@
       });
 
       if (data.updateTemplateComment) {
+        // Preserve the author information when updating the comment
+        const updatedComment = {
+          ...data.updateTemplateComment,
+          author: comment.author, // Preserve the original author information
+        };
         comments = comments.map((c) =>
-          c.id === comment.id ? data.updateTemplateComment : c
+          c.id === comment.id ? updatedComment : c
         );
         editingComment = null;
         editContent = "";
