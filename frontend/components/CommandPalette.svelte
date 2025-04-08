@@ -209,13 +209,6 @@
 
     // Load existing courses for prerequisites
     await loadCourses();
-
-    // Focus input on next tick after dialog opens
-    setTimeout(() => {
-      if (courseNameInputEl) {
-        courseNameInputEl.focus();
-      }
-    }, 50);
   }
 
   async function loadCourses() {
@@ -282,13 +275,6 @@
     open = false;
     searchTemplateDialogOpen = true;
     templateSearchQuery = query;
-
-    // Focus input on next tick after dialog opens
-    setTimeout(() => {
-      if (templateSearchInputEl) {
-        templateSearchInputEl.focus();
-      }
-    }, 50);
   }
 
   function executeTemplateSearch() {
