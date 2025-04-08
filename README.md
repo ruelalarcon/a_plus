@@ -75,10 +75,11 @@ frontend/
       courseSorting.test.js      # Tests for course sorting utilities
 cypress/
   e2e/                    # Cypress E2E integration test specs
-  fixtures/               # Data fixtures for cypress tests
-  support/                # Helpers for E2E tests
-    commands.js           # Helper commands called within Cypress
-    e2e.js                # E2E test setup
+    auth.cy.js            # Tests the authentication flow
+    calculators.cy.js     # Tests all user stories related to calculators
+    commandPalette.cy.js  # Tests all user stories related to the command palette
+    courses.cy.js         # Tests all user stories related to the course tracker
+    templates.cy.js       # Tests all user stories related to shared templates
 jest.config.js            # Jest configuration
 jest.setup.js             # Global test setup and teardown
 cypress.config.js         # Cypress configuration
@@ -237,7 +238,7 @@ This project relies on several external dependencies:
 - **svelte-sonner**: Toast notifications
 - **lucide-svelte**: UI icons
 - **vite**: Build tool and development server
-- Additional utilities: bits-ui, clsx, tailwind-merge, tailwind-variants
+- Additional utilities: bits-ui, clsx, cmdx-sk, tailwind-merge, tailwind-variants (used for shadcn-svelte)
 
 ## Specific Behaviors
 
