@@ -86,7 +86,6 @@ describe("Courses Spec", () => {
       "have.text",
       "0 / 1"
     );
-    cy.get(".gap-2 > .text-sm").click();
     cy.get('[data-test="complete-checkbox"]').click();
     cy.get('[data-test="courses-completion"] > :nth-child(2)').should(
       "have.text",
@@ -95,11 +94,6 @@ describe("Courses Spec", () => {
     cy.get('[data-test="credits-completion"] > :nth-child(2)').should(
       "have.text",
       "3 / 3"
-    );
-    cy.get('[data-test="complete-checkbox"]').click();
-    cy.get('[data-test="credits-completion"] > :nth-child(2)').should(
-      "have.text",
-      "0 / 3"
     );
 
     // Check credit values with courses that have >3

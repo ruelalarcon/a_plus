@@ -29,7 +29,6 @@ describe("Command Palette Spec", () => {
     cy.get('[data-test="confirm-password-input"]').type(testUser.password);
     cy.get('[data-test="register-submit-btn"]').click();
 
-    /* ==== Generated with Cypress Studio ==== */
     cy.get('[data-test="command-palette-btn"] > :nth-child(2)').click();
     cy.get(
       '[data-test="create-calculator-item"] > .justify-between > .flex > span'
@@ -77,6 +76,5 @@ describe("Command Palette Spec", () => {
     cy.get('[data-test="template-search-input"]').type("Test");
     cy.get('[data-test="confirm-template-search"]').click();
     cy.get('[data-test="template-name"]').should("have.text", "Test 1");
-    /* ==== End Cypress Studio ==== */
   });
 });
