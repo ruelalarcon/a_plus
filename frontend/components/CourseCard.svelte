@@ -55,7 +55,7 @@
               size="icon"
               class="h-8 w-8"
               on:click={() => onEdit(course)}
-              data-test="edit-course-btn"
+              data-test="edit-course-btn-{course.id}"
             >
               <Pencil class="h-4 w-4" />
             </Button>
@@ -70,7 +70,7 @@
               size="icon"
               class="h-8 w-8 text-destructive hover:text-destructive"
               on:click={() => onDelete(course)}
-              data-test="delete-course-btn"
+              data-test="delete-course-btn-{course.id}"
             >
               <Trash2 class="h-4 w-4" />
             </Button>
