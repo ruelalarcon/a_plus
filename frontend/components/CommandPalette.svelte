@@ -126,12 +126,6 @@
   function handleCreateCalculator() {
     open = false;
     createDialogOpen = true;
-    // Focus input on next tick after dialog opens
-    setTimeout(() => {
-      if (calculatorInputEl) {
-        calculatorInputEl.focus();
-      }
-    }, 50);
   }
 
   async function handleOpenCalculator() {
