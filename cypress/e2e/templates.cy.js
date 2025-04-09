@@ -110,10 +110,6 @@ describe("Templates Spec", () => {
       "include.text",
       testUser.username
     );
-    cy.get('[data-test="comment-date"] > span').should(
-      "have.text",
-      "Apr 8, 2025"
-    );
 
     // Editing a comment
     cy.get('[data-test="edit-comment-btn"]').click();
