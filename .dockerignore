@@ -1,0 +1,15 @@
+node_modules
+.git
+.gitignore
+npm-debug.log
+dist
+logs/
+.env.example
+.env.test
+.env.cypress
+.env.jest
+prometheus_data
+grafana_data
+cypress/
+.build-hash
+out/

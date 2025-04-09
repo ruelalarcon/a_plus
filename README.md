@@ -2,14 +2,45 @@
 
 > A web application for students to track course grades, share grade calculation templates, and manage course prerequisites.
 
-## Development Setup
+## Table of Contents
+- [Grade Calculator App (A+Plus)](#grade-calculator-app-aplus)
+  - [Table of Contents](#table-of-contents)
+  - [Quick Start with Docker](#quick-start-with-docker)
+  - [Development Setup](#development-setup)
+  - [Monitoring with Prometheus and Grafana](#monitoring-with-prometheus-and-grafana)
+    - [Metrics Exposed](#metrics-exposed)
+    - [Dashboard Features](#dashboard-features)
+    - [Custom Metrics](#custom-metrics)
+  - [Testing](#testing)
+    - [Running Tests](#running-tests)
+    - [Test Structure](#test-structure)
+  - [Core Features](#core-features)
+    - [Grade Calculators](#grade-calculators)
+    - [Calculator Templates](#calculator-templates)
+    - [Course Tracking](#course-tracking)
+  - [Technical Architecture](#technical-architecture)
+    - [Frontend (Svelte)](#frontend-svelte)
+      - [Key Components](#key-components)
+      - [Routes](#routes)
+      - [Authentication Flow](#authentication-flow)
+    - [Backend (Express + SQLite + GraphQL)](#backend-express--sqlite--graphql)
+      - [Database Schema](#database-schema)
+      - [API Architecture](#api-architecture)
+  - [External Modules](#external-modules)
+    - [Production Dependencies](#production-dependencies)
+    - [Development Dependencies](#development-dependencies)
+  - [Specific Behaviors](#specific-behaviors)
+    - [Template Voting](#template-voting)
+    - [Template Search Ranking](#template-search-ranking)
+    - [Course Prerequisites](#course-prerequisites)
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+## Quick Start with Docker
 
-2. Create a `.env` file with:
+The easiest way to run the application is with [Docker Compose](https://docs.docker.com/compose/):
+
+1. Make sure you have Docker and Docker Compose installed on your system.
+
+2. Create a `.env` file with the required environment variables:
    ```
    NODE_ENV=development # options: production, development, test
    # Note: don't use NODE_ENV=production unless deploying on a site with valid SSL certificates, etc.
@@ -20,6 +51,48 @@
    ```
    An example .env file is given (env.example)
 
+   > Note: The NODE_ENV variable determines which database file is used:
+   > - development: Uses dev.db
+   > - production: Uses prod.db
+   > - test: Uses test.db
+
+3. Build and start the complete stack (app, Prometheus, and Grafana):
+   ```bash
+   docker-compose up
+   ```
+   or in detached mode:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Access the application at http://localhost:3000
+
+5. Access Prometheus at http://localhost:9090
+
+6. Access Grafana at http://localhost:3456
+   - Default credentials are set in your `.env` file
+
+7. Shut down docker containers using:
+   ```bash
+   docker-compose down
+   ```
+
+To run only the monitoring tools (Prometheus and Grafana) without the app:
+```bash
+docker-compose -f docker-compose.metrics.yml up -d
+```
+
+## Development Setup
+
+If you want to work on the code directly without Docker:
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Create a `.env` file with the same variables as in the Docker setup.
+
 3. Start development server:
    ```bash
    npm run dev
@@ -29,6 +102,11 @@
 4. Access the app at http://localhost:3000
 
 5. See self-documented API sandbox at http://localhost:3000/graphql
+
+6. For monitoring, you can start just the monitoring stack:
+   ```bash
+   docker-compose -f docker-compose.metrics.yml up -d
+   ```
 
 ## Monitoring with Prometheus and Grafana
 
@@ -41,20 +119,7 @@ The application is set up to export Prometheus metrics that can be visualized in
 - **Active User Metrics**: Users who have been active in the last 5 minutes
 - **System Metrics**: CPU and memory usage
 
-> Note that the `/metrics` endpoint does not require authentication. The standard for securing this endpoint in production is via [adding authentication](https://betterstack.com/community/questions/set-up-and-secure-prometheus-metrics-endpoints/) to it through your reverse proxy of choice.
-
-### Setting Up Monitoring
-
-1. Start the monitoring stack:
-   ```bash
-   docker-compose up -d
-   ```
-
-2. Access Prometheus at http://localhost:9090
-
-3. Access Grafana at http://localhost:3456
-   - Default credentials: admin/admin
-   - The Grade Tracker dashboard will be automatically available
+> Note: The `/metrics` endpoint does not require authentication. The standard for securing this endpoint in production is via [adding authentication](https://betterstack.com/community/questions/set-up-and-secure-prometheus-metrics-endpoints/) to it through your reverse proxy of choice.
 
 ### Dashboard Features
 
@@ -69,6 +134,8 @@ The preconfigured Grafana dashboard includes panels for:
 You can add custom metrics to the application by creating new metrics in `server/server.js` using the prom-client library.
 
 ## Testing
+
+> Note: Running development tests requires building through the [development setup](#development-setup), not just through the Docker quickstart.
 
 The application includes a comprehensive test suite utilizing Jest unit tests and Cypress E2E integration tests. The tests operate a separate test database to avoid affecting production data.
 

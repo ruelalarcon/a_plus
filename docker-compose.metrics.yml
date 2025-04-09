@@ -1,28 +1,4 @@
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: grade-calculator-app
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=${NODE_ENV:-development}
-      - PORT=3000
-      - SESSION_SECRET=${SESSION_SECRET}
-      - GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER}
-      - GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
-    volumes:
-      - ./logs:/app/logs
-      # Mount all database files as volumes to persist data
-      - ./server/dev.db:/app/server/dev.db
-      - ./server/prod.db:/app/server/prod.db
-      - ./server/test.db:/app/server/test.db
-    restart: unless-stopped
-    networks:
-      - app-network
-      - monitoring
-
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -63,9 +39,7 @@ services:
 networks:
   monitoring:
     driver: bridge
-  app-network:
-    driver: bridge
 
 volumes:
   prometheus_data:
-  grafana_data:
+  grafana_data: 
