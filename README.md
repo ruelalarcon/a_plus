@@ -15,6 +15,8 @@
    # Note: don't use NODE_ENV=production unless deploying on a site with valid SSL certificates, etc.
    PORT=3000
    SESSION_SECRET=your-secret-key-here
+   GRAFANA_ADMIN_USER=admin
+   GRAFANA_ADMIN_PASSWORD=your-grafana-password-here
    ```
    An example .env file is given (env.example)
 
@@ -27,6 +29,44 @@
 4. Access the app at http://localhost:3000
 
 5. See self-documented API sandbox at http://localhost:3000/graphql
+
+## Monitoring with Prometheus and Grafana
+
+The application is set up to export Prometheus metrics that can be visualized in Grafana. The metrics cover HTTP requests, GraphQL operations, active sessions, and system resources.
+
+### Metrics Exposed
+
+- **HTTP Request Metrics**: Request counts, durations, and status codes
+- **GraphQL Operation Metrics**: Operation counts by type and name
+- **Active User Metrics**: Users who have been active in the last 5 minutes
+- **System Metrics**: CPU and memory usage
+
+> Note that the `/metrics` endpoint does not require authentication. The standard for securing this endpoint in production is via [adding authentication](https://betterstack.com/community/questions/set-up-and-secure-prometheus-metrics-endpoints/) to it through your reverse proxy of choice.
+
+### Setting Up Monitoring
+
+1. Start the monitoring stack:
+   ```bash
+   docker-compose up -d
+   ```
+
+2. Access Prometheus at http://localhost:9090
+
+3. Access Grafana at http://localhost:3456
+   - Default credentials: admin/admin
+   - The Grade Tracker dashboard will be automatically available
+
+### Dashboard Features
+
+The preconfigured Grafana dashboard includes panels for:
+- HTTP request rates and latencies
+- GraphQL operation counts
+- Active users (based on activity within the last 5 minutes)
+- Node.js CPU and memory usage
+
+### Custom Metrics
+
+You can add custom metrics to the application by creating new metrics in `server/server.js` using the prom-client library.
 
 ## Testing
 
@@ -226,6 +266,8 @@ This project relies on several external dependencies:
 - **lodash**: Utility library
 - **svelte-routing**: Client-side routing
 - **winston**: Logging library
+- **prom-client**: Prometheus client for Node.js
+- **express-prom-bundle**: Express middleware for Prometheus metrics
 
 ### Development Dependencies
 - **@sveltejs/vite-plugin-svelte**: Vite plugin for Svelte

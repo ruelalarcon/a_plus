@@ -9,11 +9,70 @@ import { dirname, join } from "path";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
 import testRoutes from "./utils/testRoutes.js";
+import promClient from "prom-client";
+import promBundle from "express-prom-bundle";
 
 // Import logger and create server-specific logger
 import { createLogger } from "./utils/logger.js";
 const serverLogger = createLogger("server");
 const httpLogger = createLogger("http");
+
+// Initialize Prometheus metrics
+const collectDefaultMetrics = promClient.collectDefaultMetrics;
+// Collect default metrics
+collectDefaultMetrics({ register: promClient.register });
+
+// Create custom metrics
+// Only keep the metrics that don't overlap with express-prom-bundle
+const graphqlOperationCount = new promClient.Counter({
+  name: "graphql_operations_total",
+  help: "Count of GraphQL operations",
+  labelNames: ["operation", "type"], // type can be 'query' or 'mutation'
+});
+
+// Gauge for active users - based on recent activity
+const activeUsersGauge = new promClient.Gauge({
+  name: "active_users",
+  help: "Number of users active in the last 5 minutes",
+});
+
+// Store the last activity time for each user
+// This is a simple in-memory store - if our application scales to where
+// multiple instances are needed and in-memory is not better than a shared
+// cache, consider moving this to a shared cache like Redis
+const userLastActivity = new Map();
+
+// Function to count active users - those with activity in the last 5 minutes
+function updateActiveUsersMetric() {
+  const now = Date.now();
+  const fiveMinutesAgo = now - 5 * 60 * 1000;
+
+  // Count users with activity in the last 5 minutes
+  let activeCount = 0;
+  for (const lastActivity of userLastActivity.values()) {
+    if (lastActivity > fiveMinutesAgo) {
+      activeCount++;
+    }
+  }
+
+  // Update the gauge with the accurate count
+  activeUsersGauge.set(activeCount);
+
+  // Clean up old entries to prevent memory leaks
+  for (const [userId, lastActivity] of userLastActivity.entries()) {
+    // Remove entries older than 30 minutes
+    if (lastActivity < now - 30 * 60 * 1000) {
+      userLastActivity.delete(userId);
+    }
+  }
+}
+
+// Schedule regular updates of the active users metric
+setInterval(updateActiveUsersMetric, 30 * 1000); // Update every 30 seconds
+
+// Register custom metrics
+promClient.register.registerMetric(graphqlOperationCount);
+promClient.register.registerMetric(activeUsersGauge);
 
 // Import our new resolvers
 import resolvers from "./graphql/resolvers/index.js";
@@ -56,6 +115,23 @@ const typeDefs = readFileSync(
 const apolloServer = new ApolloServer({
   typeDefs, // Loaded from file
   resolvers, // Imported from ./graphql/resolvers/
+  plugins: [
+    {
+      // Plugin to track GraphQL operations
+      async requestDidStart(_requestContext) {
+        return {
+          async didResolveOperation(context) {
+            const operationType = context.operation.operation;
+            const operationName = context.operationName || "anonymous";
+            graphqlOperationCount.inc({
+              operation: operationName,
+              type: operationType,
+            });
+          },
+        };
+      },
+    },
+  ],
 });
 
 // HTTP request logging middleware
@@ -100,6 +176,21 @@ const requestLogger = (req, res, next) => {
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Set up Prometheus middleware (must be early in the middleware chain)
+const metricsMiddleware = promBundle({
+  includeMethod: true,
+  includePath: true,
+  includeStatusCode: true,
+  includeUp: true,
+  promClient: {
+    collectDefaultMetrics: false, // We're already collecting default metrics
+  },
+  // Customize metric names to avoid conflicts with our custom metrics
+  metricName: "prom_http_requests_total",
+  httpDurationMetricName: "prom_http_request_duration_seconds",
+});
+app.use(metricsMiddleware);
+
 // Apply basic middleware immediately
 app.use(cors()); // Enable CORS - might be needed for GraphQL clients
 app.use(requestLogger); // Add request logging
@@ -132,6 +223,16 @@ if (process.env.NODE_ENV === "test") {
 
 app.use(session(sessionOptions));
 serverLogger.debug("Express middleware configured");
+
+// Expose metrics endpoint for Prometheus to scrape
+app.get("/metrics", async (_req, res) => {
+  try {
+    res.set("Content-Type", promClient.register.contentType);
+    res.end(await promClient.register.metrics());
+  } catch (ex) {
+    res.status(500).end(ex);
+  }
+});
 
 // Start Apollo Server immediately (rather than waiting for startServer to be called)
 // This ensures GraphQL middleware is available as soon as the module is loaded
@@ -189,6 +290,9 @@ if (
           `GraphQL endpoint available at http://localhost:${port}/graphql`
         );
         serverLogger.info(
+          `Metrics endpoint available at http://localhost:${port}/metrics`
+        );
+        serverLogger.info(
           `Environment: ${process.env.NODE_ENV || "development"}`
         );
       });
@@ -198,3 +302,12 @@ if (
       process.exit(1);
     });
 }
+
+// Add middleware to track user activity
+app.use((req, _res, next) => {
+  // Record activity time for authenticated users
+  if (req.session && req.session.userId) {
+    userLastActivity.set(req.session.userId, Date.now());
+  }
+  next();
+});

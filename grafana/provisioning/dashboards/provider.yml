@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: "Grade Tracker Dashboards"
+    orgId: 1
+    folder: "GradeTracker"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10 # How often Grafana will scan for changed dashboards
+    allowUiUpdates: true # Allow dashboard edits from the UI
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
