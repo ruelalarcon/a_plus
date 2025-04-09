@@ -14,10 +14,8 @@ services:
       - GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - ./logs:/app/logs
-      # Mount all database files as volumes to persist data
-      - ./server/dev.db:/app/server/dev.db
-      - ./server/prod.db:/app/server/prod.db
-      - ./server/test.db:/app/server/test.db
+      # Mount the server directory
+      - ./server:/app/server
     restart: unless-stopped
     networks:
       - app-network
