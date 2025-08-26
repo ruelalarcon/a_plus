@@ -1,9 +1,22 @@
-# Grade Calculator App (A+Plus)
+# A+Plus
 
-> A web application for students to track course grades, share grade calculation templates, and manage course prerequisites.
+A social network for students to track course grades, share grade calculation templates, and manage course prerequisites, created by our group for CMPT 370 at the University of Saskatchewan.
+
+---
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=g3X9ubPIK2M" target="_blank">
+    <img src="https://i3.ytimg.com/vi/g3X9ubPIK2M/maxresdefault.jpg" alt="A+Plus Overview" width="560"/>
+    <br>
+    <b>Watch the Overview</b>
+  </a>
+  <br>
+  <br>
+  Check out our video overview - one of the deliverables required for the class. In it, we discuss project architecture and design decisions as well as core features.
+</p>
 
 ## Table of Contents
-- [Grade Calculator App (A+Plus)](#grade-calculator-app-aplus)
+- [A+Plus](#aplus)
   - [Table of Contents](#table-of-contents)
   - [Quick Start with Docker](#quick-start-with-docker)
   - [Development Setup](#development-setup)
