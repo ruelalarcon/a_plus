@@ -1,6 +1,6 @@
 # A+Plus
 
-A social network for students to track course grades, share grade calculation templates, and manage course prerequisites, created by our group for CMPT 370 at the University of Saskatchewan.
+A social network for students to track course grades, share grade calculation templates, and manage course prerequisites, created by our group for CMPT 370 at the University of Saskatchewan. Built using Svelte, complete with a GraphQL API and Grafana Dashboard.
 
 ---
 
