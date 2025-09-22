@@ -15,8 +15,6 @@ A social network for students to track course grades, share grade calculation te
   Check out our video overview - one of the deliverables required for the class. In it, we discuss project architecture and design decisions as well as core features.
 </p>
 
----
-
 ## Team Members
 - **Ruel Nathaniel Alarcon**
 - **Nina Sproule**
